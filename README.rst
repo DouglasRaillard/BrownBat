@@ -11,8 +11,8 @@ It currently handles C langage, but adding new langages leveraging all the facil
 
 Installing
 ----------
-
-**BrownBat** can be installed from PyPI (Python package index)::
+**BrownBat** requires Python 3 to work correctly.
+It can be installed from PyPI (Python package index)::
 
     > pip install brownbat
     
