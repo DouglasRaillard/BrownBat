@@ -17,7 +17,7 @@ setup(
     long_description=read('README.rst'),
     license = "GNU Lesser General Public License v3 or later (LGPLv3+)",
     keywords = "source generation lazy code meta",
-    #url = "", # No url for now
+    url = "https://github.com/DouglasRaillard/BrownBat",
     packages = ['brownbat'],
     classifiers=[
         "Operating System :: OS Independent",
