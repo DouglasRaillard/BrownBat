@@ -1,13 +1,17 @@
 What is BrownBat ?
 ------------------
 **BrownBat** is a pure Python library to create source code generators.
-By source code generator, I mean a program which output is source code.
+By source code generator, I mean a program which outputs source code.
 Its main features are:
  * Laziness everywhere: you can set every possible name or attribute after the object has been created and used, and 
    it will be taken into account when printed. This allows the generator to set the layout of the code, and for example set the names
    of the variables or functions later, when the correct name can be computed from another source of information.
    
  * Nifty operator overloading, making it quite easy to manipulate source code objects. 
+ * Automatic debugging comments for every object created. That means that when you create a variable and you print its definition
+   to an output source file, you will be able to tell which line in the Python generator created this variable.
+   This is incredibly helpful when you are lost in your spaghetti code and you don't even know from where that specific output source
+   code line comes from, or just why this line of code shows up in the output.
  
 It currently handles C langage, but adding new langages leveraging all the facilities given by the core should be easy.
 

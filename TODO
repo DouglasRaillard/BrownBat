@@ -1,4 +1,6 @@
 
+Add class to represent source files and header files
+
 Verify that inline_str and freestanding_str are correctly used
 
 Write docstring
