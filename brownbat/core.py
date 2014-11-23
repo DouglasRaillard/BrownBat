@@ -23,6 +23,8 @@ import numbers
 import abc
 import inspect
 import copy 
+import functools
+
 
 def listify(iterable_or_single_elem):
     if iterable_or_single_elem is None:
@@ -124,6 +126,7 @@ class NodeMeta(abc.ABCMeta):
         
         # Wrap inline_str function to allow automatic filtering on its output
         def make_wrapper(wrapped_fun):
+            @functools.wraps(wrapped_fun)
             def wrapper_fun(self, *args, **kwargs):
                 result = wrapped_fun(self, *args, **kwargs)
                 try:
