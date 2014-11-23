@@ -17,6 +17,13 @@ Because it allows you to write custom tools to avoid repetitive or error prone t
 of a serialization and deserialization routines for a C structure described in XML.
 This can be quite easily accomplished with the help of this library and the standard Python library.
 
+Supported langages
+------------------
+Currently, only C langage is supported.
+That said, what makes this library interesting (laziness, operator overloading) is separated in a langage independent module (core), 
+which should make it easy to add support for a new langage. A guide to write support code for new langages will be released in the next 
+few months.
+
 
 Installing
 ----------
@@ -41,3 +48,8 @@ License
 -------
 **BrownBat** is licensed under the GNU Lesser General Public License v3 or later (LGPLv3+) License.
 
+
+Why BrownBat is named BrownBat ?
+--------------------------------
+Because those cute animals are very lazy (according to http://en.wikipedia.org/wiki/Little_brown_bat#Sleep, they can sleep up to 20h a day).
+And this library is designed to be lazy at its very core.
