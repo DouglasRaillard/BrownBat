@@ -1,0 +1,205 @@
+Ajouter une fonction de print pour tous les objects redefinissant __str__ 
+et derivant de Expr. La raison est que cette methode __str__ masque celle
+de TokenList, alors que TokenList possède des fonctions __imul__ qui changent
+son contenu, et ces changements ne sont pas pris en compte par le __str__ des 
+sous classes.
+
+Il pourrait être bon de definire les methodes suivantes:
+pretty_str: definition actuelle de __str__
+freestanding_str: definition actuelle de pretty_print
+
+TokenList appelerait alors la methode pretty_str pour afficher le contenu,
+et les sous classes n'auraient pas besoin de redefinir __str__
+
+S'assurer de l'usage universel de TokenList et TokenListContainer pour encapsuler tous les parametres passes aux constructeurs
+(car toutes les methodes utilisent la methode pretty_str(), qui ne peut pas marcher sur une string non encapsulee dans une TokenList)
+
+Renommer freeze_string en freeze_str
+Fixer les fonctions freeze_string de NodeContainer: l'affichage de la definition d'une fonction ne marche plus apres ça
+=> En fait tout se passait bien, c'etait juste l'affichage hors contexte d'une fonction qui est bizarre
+
+Regler le probleme de l'indentation des { et } des else apres un freeze_str()
+=> suppression de freeze_str, car sa sémantique était floue: usage de pretty_str ou freestanding_str ?
+
+Autoriser le changement des format string d'affichage des classes principales, pour customiser le style du code obtenu.
+
+Concevoir une API permettant d'appliquer des conventions de nommages customisees
+=> Pas besoin, il suffit à l'utilisateur de faire une classe fille de TokenList, et de l'utiliser dans tous les identifiants de son code 
+au lieu de mettre directement des str. A la fin, il peut ajouter des token en tête de ses identifiants, etc.
+
+
+Retirer l'usage du multiton et surcharger le teste d'egalite pour les classes de definition et declaration
+(usage d'un meme attribut "parent" pour toutes ces classes et classe mere qui teste l'egalite en testant les parents avec l'operateur is).
+
+Fixer la creation des variables (utiliser un mecanisme lazy pour determiner les differents parametres,
+en plus d'un mecanisme permettant de parser une declaration C)
+
+Fixer la creation des variables qui sont des pointeurs (etoiles mal rattachée 
+au type, des fois au nom). Utiliser des regex propres pour la lisibilité.
+
+Fixer l'usage de Expr des variables en utilisant l'attribut token_list pour contenir le nom, ceci afin d'avoir un comportement
+consistant vis a vis de la surcharge des operateurs de Expr (addition avec une autre expression notamment). Var est dans ce cas là.
+
+Verifier l'usage de TokenListContainer au lieu de NodeContainer
+=> TokenListContainer renomme, en TypedNodeContainer, usage quand il faut une liste de TokenList
+
+Modifier TypedNodeContainer pour qu'il s'assure du type des objets qui lui sont ajoutes (append, extend et autre)
+=> Il est plus délicat de supprimer un objet du conteneur, car il faut récuperer une reference dessus avant.
+
+Voir si l'usage de EnumMember est justifie par autre chose que l'application des conventions de nommage,
+et reflechir sur son utilite le cas echeant
+=> Il est necessaire pour l'application de "," en fin de ligne, au lieu de ";" comme pour une expression. 
+   Il serait sans doute possible de le gérer en faisant une sous classe de BlockStmt, mais son comportement serait
+   bien different de BlockStmt: il ne deleguerait pas entierement l'affichage aux sous classes, ce qui serait inconsistant.
+
+Regler le pb des enumerations (, en trop a la fin)
+
+Reflechir a l'utilisation d'une variable gobale pour l'indentation
+=> Suppression de la variable globale et passage recursif de l'indentation
+
+Permettre l'association d'un commentaire à un Node, et de l'afficher dans son inline_str
+
+Voir si il y a moyen de jouer sur l'heritage pour ajouter des comportements spéciaux dans inline_str/freestanding_str
+(affichage automatique d'un commentaire, déclenchement d'une action au bout d'un certain nombre de lignes)
+=> Ajout de l'affichage d'un commentaire dans NodeContainer
+
+Utiliser une propriété sur token_list pour permettre d'avoir un mécanisme lazy pour printer les objets
+=> A la place, usage d'une classe specialisée dans le printing d'une classe donnée. Celle ci est une NodeView, et
+elle permet de printer son parent. Le parent passe ce printer au constructeur de TokenList
+
+S'assurer que les format string sont utilisées de la manière la plus lazy possible, et uniformiser les comportements 
+=> Utilisation de classe specialisée dans le printing
+
+S'assurer que toutes les classes ont des parametres par defaut adaptes
+
+Utiliser un descripteur EnsureNode pour tous les attributs qui doivent avoir un Node dedans. Le comportement sera identique à ensure_node
+
+S'assurer que la metaclass fonctionne bien (qu'elle oblige a definire inline_str et freestanding_str dans toutes les classes filles)
+=> Usage de l'heritage au lieu de NodeABC.register
+
+Utiliser ensure_node autant que possible (notamment TokenList)
+=> Est-ce bien une bonne idée ? La maniere d'acceder a un element dependra donc de son type (indirection en plus ou en moins)
+ce qui n'est pas forcement une bonne idee
+=> Usage d'un descripteur forçant le type du contenu à être un NodeABC, sinon, tente une coercion avec un type associé à l'attribut
+
+Tester isinstance(..., NodeABC) au lieu de Node
+
+
+Utiliser __format_string partout. Sinon, impossible d'appeler la inline_str de la classe parent en l'integrant dans le retour 
+d'une classe fille (exemple: impossible d'afficher le contenu d'un NodeContainer embarqué dans un PrepIf
+Resoudre le probleme de l'heritage des format_string (utilisation de la format_string de la classe fille alors que
+c'est celle de la classe mere qu'il faudrait parfois utiliser).
+=> Utiliser le name mangling pour eviter les conflits de noms
+=> Permettre une methode d'acces unifiée à la format string, quelque soit l'attribut dans lequel elle est stockée
+=> Usage du name mangling partout, pour pouvoir avoir le maximum de souplesse (remplacement de la chaine, composition nestée du print entre
+classe mere et classe fille etc.)
+
+
+Profiler le code pour voir les goulets. test_switch serait un bon debut
+=> L'ajout des Backtrace plombe les performances
+=> Le profilage est inutile, la lib n'a pas pour but d'être rapide
+
+Regler le soucis de NodeContainer: il ne peut pas avoir de NodeContainer en enfant
+=> Il s'avere que c'est juste qu'il n'est pas un SingleElement. Stmt en est un, ce qui lui permet de rester lazy et intact.
+=> Reflechir aux cas d'utilisation d'un NodeContainer qui ne serait pas SingleElement
+=> Remplacement de certains usages de NodeContainer par StmtContainer, ce qui regle le probleme du SingleElement
+
+Nettoyer les make_idt inutiles
+
+Regarder si la surcharge de __copy__ est utile
+=> Creation d'une methode copy pour les NodeContainer: elle crée de nouveaux objects pour
+les structures internes (node_list, node_classinfo, node_factory), mais ne fait pas de deepcopy recursive
+
+Ajouter un moyen simple de sous classer TokenList tout en printant une liste composée de soi meme, pour eviter d'avoir à
+créer une classe *Printer
+=> La classe TokenList utilise self_inline_str quand elle tente de printer une reference vers self, au lieu d'appeler inline_str
+(ce qui conduirait à une recursion infine de toute maniere). Ainsi, une classe fille se construit en passant le token self, et en
+definissant self_inline_str.
+
+Faire en sorte qu'une Backtrace printée en freestanding_str est printée comme un SinglLineCom, et sinon juste comme
+une TokenList
+
+
+Utiliser StringIO pour améliorer la performance des endroits de concaténation intensive (NodeContainer par exemple)
+=> S'assurer que StringIO améliore vraiment les performances, ce n'est pas sur
+=> Repoussé a un moment ou je me rendrait compte que effectivement, ça pose probleme. En attendant, je ne fais rien
+
+Nettoyer les __format_string inutiles
+=> Elles sont toutes utiles pour pouvoir suivre la chaine d'heritage facilement
+
+Reflechir à l'usage des classes *Decl et *Defi: quand leur présence est elle vraiment nécessaire ? Le contexte et la séparation
+pretty_str et freestanding_str ne suffit-elle pas ?
+=> Il apparait que il est necessaires de conserver une representation lazy pour un certain nombre de classes.
+=> Elles sont utilisées partout où l'usage de la definition ou de la declaration sont necessaires, independamment du contexte
+
+S'assurer que tout le code est bien lazy (que le code qui utilise .defi()/.decl() recupere bien une instance de *Defi/*Decl
+et non une chaine de caractere)
+
+Eventuellement, creer un fichier de configuration .ini qui permette de changer le style du code genere.
+=> Ou pas. C'est sans doute overkill, surtout vu le peu d'options
+
+Verfier que tous les parametres sont bien passés à une moulinette ensure_node pour les printer correctement
+
+Trouver un moyen pour appliquer le filtre de sortie de string sur la stringification de token_list, pour que des classes comme
+Var puissent appliquer le filtre uniquement sur le nom de la variable et pas sur toute la string de declaration.
+=> Implementation de la composition dans TokenListBase: les operations peuvent etres menées sur un objet embarqué, au lieu de 
+   directement le memebre token_list.
+=> Inconvenient de cette methode: meme si la classe de l'objet embarqué est une classe fille de TokenListBase et qu'elle redefinie certaines
+   methode, ce seront toujours les methodes de TokenListBase qui seront appelées quand elles sont utilisées dans ce cas de figure, ce qui est
+   un gotcha majeur.
+   
+
+Resoudre le problème de la composition de TokenList dans des sous classes
+(appel des methodes de TokenListBase au lieu de celles potentiellement surchargées du membre)
+=> Faire une classe abstraite de base avec l'interface des TokenList, et 2 implementations: une normale et une qui forward les appels
+   à un membre, en s'assurant que ce membre implémente lui même l'interface de la métaclasse
+
+Resoudre le probleme du forwarding de comment et side_comment pour NodeView (compatibilité avec l'usage de EnsureNode)
+=> La gestion explicite à l'affichage est peut etre en fait souhaitable
+=> Usage d'un descripteur permettant de forwarder l'appel à un autre descripteur   
+
+Resoudre les problèmes de For:
+ * Ecrasement de l'attribut .cond par la classe mere
+ * Modifier .action, .init ou .cond ne modifie pas l'objet
+=> Pas d'heritage de ConditionalStmt, héritage direct de BlockStmt
+
+Modifier PrepInclude pour qu'il permette la modification du chemin du header après sa création
+=> Creation d'une classe NodeAttrProxy permettant de faire un proxy pour un attribut. Il relaye uniquement les appelles à l'API de NodeABC
+
+Voir si des classes peuvent tirer partie de NodeAttrProxy
+=> Visiblement pas, ce qui est plutot une bonne chose, meme s'il est vrai que cette classe permet de se passer de classe qui 
+   seraient des Printer spécialisés
+
+Modifier toutes les utilisations de EnsureNode qui teste pour la TokenList pour qu'elles acceptent une TokenList ABC à la place
+=> Inutile, le node_classinfo contient par défaut NodeABC, ce qui permet de donner n'importe quel Node sans qu'il soit modifié
+
+Voir si certaines classes de ast peuvent etre bougées dans core
+=> Le reste est specifique au langage
+
+
+Decouper la lib en partie dépendante du langage et en partie commune
+
+Creer un systeme de configuration pour activer les options de debug par exemple
+=> La situation actuelle n'est pas si mal
+=> C'est fait, une classe Configuration a été créée pour ça.
+
+
+Trouver un nom pour la lib et le mettre dans les avis de licence en tête de fichiers
+=> Nom choisi: BrownBat, car cette chauve souris dors 20h par jour (lazy)
+
+Choisir et appliquer une licence
+=> LGPL v3
+
+========================
+
+
+Verfier la coherence de l'usage de inline_str et freestanding_str
+=> Attente d'un teste à plus grande échelle
+
+
+Ecrire des docstring
+
+Ecrire des tests unitaires
+
+Packager l'application correctement pour l'envoyer sur PyPi
+
