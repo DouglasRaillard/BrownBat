@@ -12,7 +12,7 @@ setup(
     name = "BrownBat",
     version = "0.0b1",
     author = "Douglas RAILLARD",
-    author_email = "douglas.raillard.githubr@gmail.com",
+    author_email = "douglas.raillard.github@gmail.com",
     description = "A lazy source code generation module",
     long_description=read('README.rst'),
     license = "GNU Lesser General Public License v3 or later (LGPLv3+)",
