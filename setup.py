@@ -13,7 +13,7 @@ setup(
     version = "0.0b1",
     author = "Douglas RAILLARD",
     author_email = "douglas.raillard.github@gmail.com",
-    description = "A lazy source code generation module",
+    description = "A lazy source code generation library",
     long_description=read('README.rst'),
     license = "GNU Lesser General Public License v3 or later (LGPLv3+)",
     keywords = "source generation lazy code meta",
