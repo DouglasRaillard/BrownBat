@@ -43,7 +43,6 @@ It will include examples and a guide to implement support for a new langage
 (most of the hard work of operator overloading is inside a core module, which is langage independent).
 
 
-
 License
 -------
 **BrownBat** is licensed under the GNU Lesser General Public License v3 or later (LGPLv3+) License.
