@@ -269,18 +269,25 @@ class DelegateAttribute:
         self.default_value_list = default_value_list
         
     def __get__(self, instance, owner):
-        # If the attribute has been set on the instance, just get it
-        if instance.__dict__.get('__'+self.attr_name+'_is_set', False):
-            if self.descriptor is not None:
-                return self.descriptor.__get__(instance, owner)
+        if instance is not None:
+            # If the attribute has been set on the instance, just get it
+            if instance.__dict__.get('__'+self.attr_name+'_is_set', False):
+                if self.descriptor is not None:
+                    return self.descriptor.__get__(instance, owner)
+                else:
+                    return instance.__dict__[self.attr_name]
+                
+            # Else it means that the attribute has not been set,
+            # so we delegate to the parent
             else:
-                return instance.__dict__[self.attr_name]
-            
-        # Else it means that the attribute has not been set,
-        # so we delegate to the parent
+                parent = getattr(instance, self.delegated_to_attr_name)
+                return getattr(parent, self.attr_name)
+
+        # If the descriptor is called as a class attribute, it
+        # just returns itself, to allow the world to see that it 
+        # is a descriptor
         else:
-            parent = getattr(instance, self.delegated_to_attr_name)
-            return getattr(parent, self.attr_name)
+            return self
     
     def __set__(self, instance, value):
         if self.descriptor is not None:
