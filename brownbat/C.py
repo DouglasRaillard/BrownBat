@@ -15,6 +15,16 @@
 # 
 # You should have received a copy of the GNU Lesser General Public License
 # along with BrownBat. If not, see <http://www.gnu.org/licenses/>.
+
+"""C langage support module
+
+   :synopsis: A C langage source generation module
+
+.. moduleauthor:: Douglas RAILLARD <douglas.raillard.github@gmail.com>
+
+This module provides the API needed to generate C source code.
+"""
+
     
 import collections
 import numbers
@@ -28,7 +38,14 @@ import copy
 import brownbat.core as core
 
 class Configuration:
+    """This class holds configuration keys used to modify the behavior of the module.
+    """
     def __init__(self, enable_debug_comments):
+        """
+        :param enable_debug_comments: Enables automatic debugging comments in generated sources.
+                                  Automatic comments are built with the line of the Python code that created 
+                                  the object represented and its type.
+        """
         self.enable_debug_comments = enable_debug_comments
 
 default_config = Configuration(
@@ -97,6 +114,11 @@ class IndentedTokenList(core.IndentedTokenListBase, TokenList):
 
 class IndentedDelegatedTokenList(core.IndentedDelegatedTokenListBase, DelegatedTokenList):
     pass
+
+class Backtrace(core.BacktraceBase, TokenList):
+    def freestanding_str(self, idt=None):
+        return SingleLineCom(('Object built at ', self)).freestanding_str(idt)
+
 
 class _Expr:
     __format_string = '{expr};{side_comment}'
@@ -911,32 +933,6 @@ class SingleLineCom(DelegatedTokenList, BaseCom):
     freestanding_str = inline_str
 
     
-class Backtrace(TokenList, core.NonSequence):
-    __frame_format_string = '{filename}:{lineno}({function})'
-    __frame_joiner = ', '
-    
-    def __init__(self, level=0, *args, **kwargs):
-        stack = inspect.stack()
-        self.stack_frame_list = [
-            frame[1:] for frame in stack
-            if os.path.dirname(frame[1]) != os.path.dirname(__file__)
-        ]
-
-        super().__init__(self, *args, **kwargs)
-        
-    def freestanding_str(self, idt=None):
-        return SingleLineCom(('Object built at ', self)).freestanding_str(idt)
-
-    def self_inline_str(self, idt=None):
-        return self._Backtrace__frame_joiner.join(
-            self._Backtrace__frame_format_string.format(
-                filename = os.path.relpath(frame[0]),
-                lineno = frame[1],
-                function = frame[2],
-                line_content = frame[3][frame[4]] if frame[3] is not None else ''
-            ) for frame in self.stack_frame_list
-        )
-
 class NewLine(Node):
     def inline_str(self, idt=None):
         idt = core.Indentation.make_idt(idt)

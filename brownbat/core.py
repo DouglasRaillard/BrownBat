@@ -24,6 +24,7 @@ import abc
 import inspect
 import copy 
 import functools
+import os
 
 
 def listify(iterable_or_single_elem):
@@ -718,3 +719,30 @@ class IndentedTokenListBase(_IndentedTokenListBase, TokenListBase):
 class IndentedDelegatedTokenListBase(_IndentedTokenListBase, DelegatedTokenListBase):
     pass
 
+class BacktraceBase(TokenListBase, NonSequence, metaclass=abc.ABCMeta):
+    __frame_format_string = '{filename}:{lineno}({function})'
+    __frame_joiner = ', '
+    
+    def __init__(self, level=0, *args, **kwargs):
+        stack = inspect.stack()
+        self.stack_frame_list = [
+            frame[1:] for frame in stack
+            if os.path.dirname(frame[1]) != os.path.dirname(__file__)
+        ]
+
+        super().__init__(self, *args, **kwargs)
+    
+    @abc.abstractmethod
+    def freestanding_str(self, idt=None):
+        #Construct a comment by giving it self as a token and use its freestanding_str method
+        pass
+
+    def self_inline_str(self, idt=None):
+        return self.__frame_joiner.join(
+            self.__frame_format_string.format(
+                filename = os.path.relpath(frame[0]),
+                lineno = frame[1],
+                function = frame[2],
+                line_content = frame[3][frame[4]] if frame[3] is not None else ''
+            ) for frame in self.stack_frame_list
+        )
