@@ -34,6 +34,8 @@ Installing
 It can be installed from PyPI (Python package index)::
 
     > pip install brownbat
+
+To install the beta version, use the --pre switch of pip.    
     
 Alternatively, the development version can be retrieved on Github:
 https://github.com/DouglasRaillard/BrownBat

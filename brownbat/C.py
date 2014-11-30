@@ -16,13 +16,12 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with BrownBat. If not, see <http://www.gnu.org/licenses/>.
 
-"""C langage support module
-
-   :synopsis: A C langage source generation module
-
+"""
 .. moduleauthor:: Douglas RAILLARD <douglas.raillard.github@gmail.com>
 
-This module provides the API needed to generate C source code.
+C langage source code generation module
+
+This module provides C langage specific classes.
 """
 
     
@@ -42,9 +41,8 @@ class Configuration:
     """
     def __init__(self, enable_debug_comments):
         """
-        :param enable_debug_comments: Enables automatic debugging comments in generated sources.
-                                  Automatic comments are built with the line of the Python code that created 
-                                  the object represented and its type.
+        :param enable_debug_comments: enables automatic debugging comments in generated sources. Automatic comments are built with the line of the Python code that created the object represented and its type.
+            
         """
         self.enable_debug_comments = enable_debug_comments
 
@@ -53,6 +51,11 @@ default_config = Configuration(
 )
 
 class Node(core.NodeBase):
+    """This class is at the root of the inheritance hierarchy of this module.
+    
+    It handles some features which are common to all of the classes representing C source code.
+    """
+    
     config = default_config
     
     # We must check if the comment is None to avoid infinite recursion
@@ -65,6 +68,17 @@ class Node(core.NodeBase):
     side_comment = core.EnsureNode('side_comment', lambda x: SingleLineCom(x) if x is not None else core.phantom_node)
         
     def __init__(self, comment=None, side_comment=None, parent=None, config=None):
+        """
+        :param comment: is the multiline comment node associated to this node. If it is not already a :class:`~brownbat.core.NodeABC`,
+                        a :class:`.Com` will be built with what you give to it.
+        :param side_comment: is a single line comment associated with this node. It will be an instance of :class:`.SingleLineCom`
+                             if it is not already a :class:`~brownbat.core.NodeABC`.
+                             Be aware that this side comment must be displayed by the class, and sometimes it will not be printed.
+        :param parent: is the parent of the node if this is a :class:`NodeView`.
+        :param config: is the configuration object of this instance. It defaults to using the *config* class attribute,
+                       so changing the class attribute *config* will impact all the instances that has not overriden
+                       it by providing a configuration object explicitly.
+        """
         if config is not None:
             self.config = config
         
@@ -77,6 +91,11 @@ class Node(core.NodeBase):
         super().__init__(comment=comment, side_comment=side_comment, parent=parent)
 
 class NodeView(core.NodeViewBase, Node):
+    """This class is the C implementation of :class:`~brownbat.core.NodeViewBase` class.
+    
+    It has a *comment* and *side_comment* descriptors that defaults to using the *parent.comment* and 
+    *parent.side_comment* attributes when they are not set explicitly.
+    """
     side_comment = core.DelegateAttribute(
         'side_comment', 'parent',
         descriptor = Node.side_comment,
@@ -90,6 +109,12 @@ class NodeView(core.NodeViewBase, Node):
     )
 
 class NodeContainer(core.NodeContainerBase, Node):
+    """This is the C implementation of :class:`~brownbat.core.NodeContainerBase` class.
+    
+    It overrides *__add__* and *__radd__* to return a :class:`.TokenListContainer` instance that
+    combines both operands.
+    """
+    
     def __add__(self, other):
         # TokenListContainer are the most agnostic containers
         return TokenListContainer((self, other))
@@ -100,22 +125,33 @@ class NodeContainer(core.NodeContainerBase, Node):
     
 
 class TokenListContainer(NodeContainer):
+    """This class is a :class:`NodeContainer` subclass that uses :class:`TokenList` as 
+    factory when the nodes given to it are not instances of subclasses of :class:`~brownbat.core.NodeABC`.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(node_classinfo=TokenList, *args, **kwargs)
 
 class TokenList(core.TokenListBase, Node):
+    """This class is the C implementation of :class:`~brownbat.core.TokenListBase`."""
     pass
 
 class DelegatedTokenList(core.DelegatedTokenListBase, Node):
+    """This class is the C implementation of :class:`~brownbat.core.DelegatedTokenListBase`."""
     pass
 
 class IndentedTokenList(core.IndentedTokenListBase, TokenList):
+    """This class is the C implementation of :class:`~brownbat.core.IndentedTokenListBase`."""
     pass
 
 class IndentedDelegatedTokenList(core.IndentedDelegatedTokenListBase, DelegatedTokenList):
+    """This class is the C implementation of :class:`~brownbat.core.IndentedDelegatedTokenListBase`."""
     pass
 
 class Backtrace(core.BacktraceBase, TokenList):
+    """This class is the C implementation of :class:`~brownbat.core.BacktraceBase`.
+    
+    It is printed as :class:`.SingleLineCom` when using *freestanding_str*.
+    """    
     def freestanding_str(self, idt=None):
         return SingleLineCom(('Object built at ', self)).freestanding_str(idt)
 
@@ -140,13 +176,27 @@ class _Expr:
         return Expr(('((',TokenList.ensure_node(new_type),')(',self,'))'))
 
 class Expr(_Expr, IndentedTokenList):
+    """This class represents a C expression.
+    
+    It is a subclass of :class:`.IndentedTokenList`, and extends its *freestanding_str* method by
+    printing a *;* at the end of line.
+    """
     pass
 
 class DelegatedExpr(_Expr, IndentedDelegatedTokenList):
+    """This class represent a C expression.
+    
+    This variant of :class:`.Expr` uses an attribute to hold the real :class:`.Expr`. It allows
+    to transparently use composition to store the expression.
+    """
     pass
     
 
-class StmtContainer(NodeContainer, core.NonSequence):
+class StmtContainer(NodeContainer, core.NonIterable):
+    """This class is a :class:`.NodeContainer` that uses :class:`Expr` as its factory.
+    
+    It allows the user to append plain strings for example, and expressions will be automatically built out of them.
+    """
     def __init__(self, node_list=None, node_classinfo=None, node_factory=None, *args, **kwargs):
         node_classinfo_list = core.listify(node_classinfo)
         if node_classinfo is None:
@@ -161,6 +211,11 @@ class StmtContainer(NodeContainer, core.NonSequence):
         
     
 class BlockStmt(StmtContainer):
+    """This class is a subclass of :class:`.StmtContainer`.
+    
+    It extends *inline_str* by outputing *{* at the front and *}* at the end, 
+    and also indent its content.
+    """
     def inline_str(self, idt=None):
         idt = core.Indentation.make_idt(idt)
         # Hide side comment for derived class because
@@ -179,7 +234,7 @@ class BlockStmt(StmtContainer):
         return snippet
         
     
-class ConditionnalStmt(BlockStmt):
+class _ConditionnalStmt(BlockStmt):
     cond = core.EnsureNode('cond', TokenList)
     
     def __init__(self, cond=None, *args, **kwargs):
@@ -195,20 +250,21 @@ class ConditionnalStmt(BlockStmt):
         )
 
 
-class If(ConditionnalStmt):
-    _ConditionnalStmt__format_string = "if({cond}){side_comment}{stmt}"
+class If(_ConditionnalStmt):
+    """This class represents the C *if* statement."""
+    __ConditionnalStmt__format_string = "if({cond}){side_comment}{stmt}"
     
-class Else(ConditionnalStmt):
-    _ConditionnalStmt__format_string = "else{side_comment}{stmt}"
+class Else(_ConditionnalStmt):
+    __ConditionnalStmt__format_string = "else{side_comment}{stmt}"
     
     def __init__(self, *args, **kwargs):
         super().__init__(cond=None, *args, **kwargs)
     
-class ElseIf(ConditionnalStmt):
-    _ConditionnalStmt__format_string = "else if({cond}){side_comment}{stmt}"
+class ElseIf(_ConditionnalStmt):
+    __ConditionnalStmt__format_string = "else if({cond}){side_comment}{stmt}"
     
-class While(ConditionnalStmt):
-    _ConditionnalStmt__format_string = "while({cond}){side_comment}{stmt}"
+class While(_ConditionnalStmt):
+    __ConditionnalStmt__format_string = "while({cond}){side_comment}{stmt}"
 
 class For(BlockStmt):
     init = core.EnsureNode('init', TokenList)
@@ -259,7 +315,7 @@ class DoWhile(BlockStmt):
             idt_nl = '\n'+str(idt)
         )
 
-class Switch(Node, core.NonSequence, collections.MutableMapping):
+class Switch(Node, core.NonIterable, collections.MutableMapping):
     expr = core.EnsureNode('expr', TokenList)
     
     __format_string = "switch({expr}){side_comment}{idt_nl}{{{stmt}{idt_nl}}}"
@@ -488,7 +544,7 @@ class Var(DelegatedExpr):
 
         return Expr((self,"[",key,"]"))
 
-class VarDecl(NodeView, core.NonSequence):
+class VarDecl(NodeView, core.NonIterable):
     
     def __init__(self, var, *args, **kwargs):
         self.parent = var
@@ -622,7 +678,7 @@ class FunDecl(NodeView):
             side_comment = self.side_comment.inline_str(idt)
         )
 
-class FunCall(NodeView, Expr, core.NonSequence):
+class FunCall(NodeView, Expr, core.NonIterable):
     param_list = core.EnsureNode('param_list', TokenListContainer)
     param_joiner = ', '
     
@@ -642,7 +698,7 @@ class FunCall(NodeView, Expr, core.NonSequence):
         )
 
 # This is not for inheritance inside this library, only a helper for final user
-class Type(DelegatedTokenList, core.NonSequence):
+class Type(DelegatedTokenList, core.NonIterable):
     name = core.EnsureNode('name', TokenList)
     
     def __init__(self, name=None, *args, **kwargs):
@@ -749,7 +805,7 @@ class Union(_StructUnionBase):
     _CompoundType__format_string= "union {name}{members};{side_comment}"
     
 
-class Typedef(Node, core.NonSequence):
+class Typedef(Node, core.NonIterable):
     old_name = core.EnsureNode('old_name', TokenList)
     name = core.EnsureNode('name', TokenList)
     
@@ -773,7 +829,7 @@ class Typedef(Node, core.NonSequence):
         )
 
 
-class FunPtrTypedef(DelegatedTokenList, core.NonSequence):
+class FunPtrTypedef(DelegatedTokenList, core.NonIterable):
     name = core.EnsureNode('name', TokenList)
     param_list = core.EnsureNode('param_list', TokenListContainer)
     return_type = core.EnsureNode('return_type', TokenList)
@@ -796,7 +852,7 @@ class FunPtrTypedef(DelegatedTokenList, core.NonSequence):
             side_comment = self.side_comment.inline_str(idt)
         )
 
-class Prep(Node, core.NonSequence):
+class Prep(Node, core.NonIterable):
     directive = core.EnsureNode('directive', TokenList)
     param_list = core.EnsureNode('param_list', TokenListContainer)
     
@@ -864,7 +920,7 @@ class PrepIf(StmtContainer):
             idt_nl = '\n'+str(idt)
         )
 
-class BaseCom(Node, core.NonSequence):
+class BaseCom(Node, core.NonIterable):
     pass
 
 class Com(TokenListContainer, BaseCom):

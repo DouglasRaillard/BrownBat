@@ -9,6 +9,8 @@ sys.path[0:0] = ['.', '..']
 import brownbat.C as C
 import brownbat.core as core
 
+C.Node.config.enable_debug_comments = True
+
 my_function = C.Fun('my_fun')
 
 local_var = C.Var('int my_local_var=42', parent=my_function)

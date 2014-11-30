@@ -2,6 +2,6 @@
 
 The following modules are provided:
 
-* :mod:`brownbat.core` implements the langage independant base classes and helpers
-* :mod:`brownbat.C` implements the C source generation API
+* :mod:`brownbat.core` implements the langage independant base classes and helpers used to build specific source generation modules.
+* :mod:`brownbat.C` implements the C source generation API.
 """
