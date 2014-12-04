@@ -175,21 +175,33 @@ class _Expr:
 
 
     def assign(self, value):
-        return Expr((self," = ",TokenList.ensure_node(value)))
+        return Expr((self," = ",value))
     
     def cast(self, new_type):
-        return Expr(('((',TokenList.ensure_node(new_type),')(',self,'))'))
+        return Expr(('((',new_type,')(',self,'))'))
     
     def __rshift__(self, member):
+        """Right shift allows to access structure/union/enum members: 'a'>>'b' will give 'a.b'."""
         return Expr((self,".",member))
     
+    def __rrshift__(self, basename):
+        """See right shift"""
+        return Expr((basename,".",self))
+       
     def __pos__(self):
+        """ +expr will give (*(expr))"""
         return Expr(('(*(',self,'))'))
     
+    def __neg__(self):
+        """-expr will give (expr)"""
+        return Expr(('(',self,')'))
+    
     def __eq__(self, value):
+        """expr1 == expr2 will give 'expr1=expr2'."""
         return self.assign(value)
     
     def __rpow__(self, type):
+        """'int'**expr will give ((int)(expr))"""
         return self.cast(type)
     
 class Expr(_Expr, IndentedTokenList):
