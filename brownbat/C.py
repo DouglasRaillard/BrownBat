@@ -887,11 +887,7 @@ class Enum(CompoundType):
 
         return snippet
     
-class _StructUnionMember(Var):
-    pass
-
-class StructMember(_StructUnionMember):
-    
+class StructMember(Var):    
     @property
     def initializer(self):
         """Special handling of initializer here: if the initializer is gotten, 
@@ -909,7 +905,7 @@ class StructMember(_StructUnionMember):
         self.default_initializer = value
     
 
-class UnionMember(_StructUnionMember):
+class UnionMember(Var):
     pass
 
 class _StructUnionBase(CompoundType):
@@ -922,7 +918,7 @@ class Struct(_StructUnionBase):
     _CompoundType__forward_declaration_typedef_format_string = "typedef struct {name} {name};"
     
     def __init__(self, name=None, member_list=None, auto_typedef=True, *args, **kwargs):
-        super().__init__(name, auto_typedef, node_list=member_list, node_classinfo=(StructMember,core.NodeABC), *args, **kwargs)
+        super().__init__(name, auto_typedef, node_list=member_list, node_classinfo=(StructMember), *args, **kwargs)
     
     def designated_init(self):
         return StructDefaultDesignatedInitializer(self)
