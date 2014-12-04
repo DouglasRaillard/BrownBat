@@ -927,10 +927,16 @@ class StructDefaultDesignatedInitializer(NodeView, Expr):
     def __init__(self, parent):
         self.parent = parent
     
-    def inline_str(self, idt=None):           
+    def inline_str(self, idt=None):
+        # Filter out the members that do not have any default initializer
+        node_list = (
+            member for member in self.parent.node_list
+            if member.default_initializer.inline_str()
+        )
+        
         snippet = '{'+', '.join(
             '.'+member.assign(member.default_initializer).inline_str()
-            for member in self.parent.node_list
+            for member in node_list
         )+'}'
         return snippet
 
