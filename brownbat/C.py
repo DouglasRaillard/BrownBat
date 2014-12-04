@@ -462,7 +462,7 @@ class Var(DelegatedExpr):
     c_identifier_regex_str = "[a-zA-Z_]+[a-zA-Z0-9_]*"
     var_defi_name_array_initializer_regex_str = "(?:(?P<name>"+c_identifier_regex_str+")\s*)(?:\[\s*(?P<array_size>.*?)\s*\])?(?:\s*=\s*(?P<initializer>.*?)\s*)?"
     var_defi_storage_list_regex_str = "(?P<storage_list>.*?)"
-    var_def_type_regex_str = "(?P<type>(?:(?P<_is_a_compound>union|struct|enum)\s*(?(_is_a_compound)(?:(?:\{.*?\})|(?:"+c_identifier_regex_str+"))|"+c_identifier_regex_str+"))?(?(_is_a_compound)|"+c_identifier_regex_str+")(?:\s*\*)?)"
+    var_def_type_regex_str = "(?P<type>(?:(?P<_is_a_compound>union|struct|enum)\s*(?(_is_a_compound)(?:(?:\{.*?\})|(?:"+c_identifier_regex_str+"))|"+c_identifier_regex_str+"))?(?(_is_a_compound)|"+c_identifier_regex_str+")(?:\s*\*+)?)"
         
     # Matches a declaration or definition of a C variable with the following groups:
     #   * name of the variable    
@@ -518,8 +518,13 @@ class Var(DelegatedExpr):
                     
                 # Remove multiple spaces before the star in pointer declarations
                 # for example: "    *" => " *"
-                if decl_type is not None and decl_type.endswith('*'):
-                    decl_type = decl_type[:-1].strip()+' *'
+                if decl_type is not None:
+                    try:
+                        first_star_index = decl_type.index('*')
+                        decl_type = decl_type[:first_star_index].strip()+' '+decl_type[first_star_index:].strip()
+                    # No star was found
+                    except ValueError:
+                        pass
                     
                 decl_name = match.group('name')                
                 decl_array_size = match.group('array_size')
@@ -613,7 +618,7 @@ class VarDecl(NodeView, core.NonIterable):
 
             else:
                 type_str = self.parent.type.inline_str(idt)
-                type_addend = '' if type_str.endswith(' *') else " "
+                type_addend = '' if type_str.endswith('*') else " "
                 snippet += type_str+type_addend
                 snippet += self.parent.inline_str(idt)
         else:
