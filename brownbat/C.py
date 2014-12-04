@@ -187,6 +187,10 @@ class _Expr:
     def __rrshift__(self, basename):
         """See right shift"""
         return Expr((basename,".",self))
+
+    def __invert__(self):
+        """ ~expr will give (&(expr))"""
+        return Expr(('(&(',self,'))'))
        
     def __pos__(self):
         """ +expr will give (*(expr))"""
