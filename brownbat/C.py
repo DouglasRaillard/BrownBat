@@ -818,9 +818,28 @@ class CompoundType(BlockStmt):
             side_comment = self.side_comment.inline_str(idt),
             idt_nl = '\n'+str(idt)
         )
+    
+    def forward_decl(self):
+        return CompoundTypeForwardDeclaration(self)
 
     def __pos__(self):
         return Expr((self,'*'))
+
+class CompoundTypeForwardDeclaration(NodeView, core.NonIterable):
+    def __init__(self, parent):
+        self.parent = parent
+    
+    def inline_str(self, idt=None):
+        idt = core.Indentation.make_idt(idt)
+        format_string = self.parent._CompoundType__forward_declaration_format_string
+        if self.parent.auto_typedef:
+            format_string += '{idt_nl}'+self.parent._CompoundType__forward_declaration_typedef_format_string
+            
+        return format_string.format(
+            name = self.parent.name.inline_str(idt),
+            side_comment = self.side_comment.inline_str(idt),
+            idt_nl = '\n'+str(idt)
+        )            
     
 class EnumMember(Var):
     def __init__(self, *args, **kwargs):
@@ -844,6 +863,9 @@ class EnumMember(Var):
 class Enum(CompoundType):
     _CompoundType__typedef_format_string = "typedef enum {name}{members} {name};{side_comment}"
     _CompoundType__format_string = "enum {name}{members};{side_comment}"
+    _CompoundType__forward_declaration_format_string = "enum {name};{side_comment}"
+    _CompoundType__forward_declaration_typedef_format_string = "typedef enum {name} {name};"
+    
     
     def __init__(self, name=None, member_list=None, auto_typedef=True, *args, **kwargs):
         super().__init__(name, auto_typedef, node_list=member_list, node_classinfo=EnumMember, *args, **kwargs)
@@ -882,11 +904,16 @@ class _StructUnionBase(CompoundType):
 class Struct(_StructUnionBase):
     _CompoundType__typedef_format_string = "typedef struct {name}{members} {name};{side_comment}"
     _CompoundType__format_string = "struct {name}{members};{side_comment}"
+    _CompoundType__forward_declaration_format_string = "struct {name};{side_comment}"
+    _CompoundType__forward_declaration_typedef_format_string = "typedef struct {name} {name};"
 
 
 class Union(_StructUnionBase):
     _CompoundType__typedef_format_string = "typedef union {name}{members} {name};{side_comment}"
     _CompoundType__format_string= "union {name}{members};{side_comment}"
+    _CompoundType__forward_declaration_format_string = "union {name};{side_comment}"
+    _CompoundType__forward_declaration_typedef_format_string = "typedef union {name} {name};"
+    
     
 
 class Typedef(Node, core.NonIterable):
