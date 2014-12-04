@@ -179,7 +179,19 @@ class _Expr:
     
     def cast(self, new_type):
         return Expr(('((',TokenList.ensure_node(new_type),')(',self,'))'))
-
+    
+    def __rshift__(self, member):
+        return Expr((self,".",member))
+    
+    def __pos__(self):
+        return Expr(('(*(',self,'))'))
+    
+    def __eq__(self, value):
+        return self.assign(value)
+    
+    def __rpow__(self, type):
+        return self.cast(type)
+    
 class Expr(_Expr, IndentedTokenList):
     """This class represents a C expression.
     
@@ -590,12 +602,11 @@ class Var(DelegatedExpr):
         return VarExternDecl(self)
 
     def __getitem__(self, key):
-        if self.array_size is None:
-            raise KeyError("This variable is not an array")
-
         return Expr((self,"[",key,"]"))
 
 class VarDecl(NodeView, core.NonIterable):
+    # Regex used to match type names using stars (pointers) and adjust spaces
+    star_space_handling_regex = re.compile('^\s*(?P<name>[^\*]*)(\s)*(?P<stars>\*+)\s*$')
     
     def __init__(self, var, *args, **kwargs):
         self.parent = var
@@ -618,6 +629,15 @@ class VarDecl(NodeView, core.NonIterable):
 
             else:
                 type_str = self.parent.type.inline_str(idt)
+                # See if there is any whitespace changes to apply
+                match_obj = self.star_space_handling_regex.match(type_str)
+                if match_obj:
+                    name = match_obj.group('name') if match_obj.group('name') is not None else ''
+                    stars = match_obj.group('stars') if match_obj.group('stars') is not None else ''
+                    type_str = name.strip()+' '+stars.strip()
+                    
+                # Add a space between the type name and the variable, but only if this is 
+                # not a pointer, in which case the space is between the type name and the stars
                 type_addend = '' if type_str.endswith('*') else " "
                 snippet += type_str+type_addend
                 snippet += self.parent.inline_str(idt)
@@ -783,7 +803,9 @@ class CompoundType(BlockStmt):
             idt_nl = '\n'+str(idt)
         )
 
-
+    def __pos__(self):
+        return Expr((self,'*'))
+    
 class EnumMember(Var):
     def __init__(self, *args, **kwargs):
         self.is_last_member = False
