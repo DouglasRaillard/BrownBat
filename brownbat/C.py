@@ -62,6 +62,7 @@ class Node(core.NodeBase):
     # because Com tries to build a TokenList (via TokenListContainer) with comment=None, which in turn
     # tries to build a comment with None and so on
     comment = core.EnsureNode('comment', lambda x: Com(x) if x is not None else core.phantom_node)
+        
     # We must check if the comment is None to avoid infinite recursion
     # because SingleLineCom tries to build a TokenList with comment=None, which in turn
     # tries to build a comment with None and so on
@@ -79,6 +80,7 @@ class Node(core.NodeBase):
                        so changing the class attribute *config* will impact all the instances that has not overriden
                        it by providing a configuration object explicitly.
         """
+        
         if config is not None:
             self.config = config
         
@@ -92,21 +94,24 @@ class Node(core.NodeBase):
 
 class NodeView(core.NodeViewBase, Node):
     """This class is the C implementation of :class:`~brownbat.core.NodeViewBase` class.
-    
-    It has a *comment* and *side_comment* descriptors that defaults to using the *parent.comment* and 
-    *parent.side_comment* attributes when they are not set explicitly.
     """
     side_comment = core.DelegateAttribute(
         'side_comment', 'parent',
         descriptor = Node.side_comment,
         default_value_list = (None,)
     )
+    """Side comment which defaults to using the *parent.side_comment* attribute
+    when not set explicitly.
+    """
     
     comment = core.DelegateAttribute(
         'comment', 'parent',
         descriptor = Node.comment,
         default_value_list = (None,)
     )
+    """Comment which defaults to using the *parent.comment* attribute
+    when not set explicitly.
+    """
 
 class NodeContainer(core.NodeContainerBase, Node):
     """This is the C implementation of :class:`~brownbat.core.NodeContainerBase` class.
@@ -234,10 +239,14 @@ class BlockStmt(StmtContainer):
         return snippet
         
     
-class _ConditionnalStmt(BlockStmt):
+class ConditionnalStmtBase(BlockStmt):
     cond = core.EnsureNode('cond', TokenList)
+    """The condition of the conditional statement."""
     
     def __init__(self, cond=None, *args, **kwargs):
+        """
+        :param cond: the condition of the conditional statement.
+        """
         self.cond = cond
         super().__init__(*args, **kwargs)
 
@@ -249,27 +258,44 @@ class _ConditionnalStmt(BlockStmt):
             idt_nl = '\n'+str(idt)
         )
 
-
-class If(_ConditionnalStmt):
+class If(ConditionnalStmtBase):
     """This class represents the C *if* statement."""
-    __ConditionnalStmt__format_string = "if({cond}){side_comment}{stmt}"
     
-class Else(_ConditionnalStmt):
-    __ConditionnalStmt__format_string = "else{side_comment}{stmt}"
+    _ConditionnalStmtBase__format_string = "if({cond}){side_comment}{stmt}"
+    
+class Else(ConditionnalStmtBase):
+    """This class represents the C *else* statement.
+    
+    :param cond: ignored
+    """
+    
+    _ConditionnalStmtBase__format_string = "else{side_comment}{stmt}"
     
     def __init__(self, *args, **kwargs):
         super().__init__(cond=None, *args, **kwargs)
     
-class ElseIf(_ConditionnalStmt):
-    __ConditionnalStmt__format_string = "else if({cond}){side_comment}{stmt}"
+class ElseIf(ConditionnalStmtBase):
+    """This class represents the C *else if* statement."""
     
-class While(_ConditionnalStmt):
-    __ConditionnalStmt__format_string = "while({cond}){side_comment}{stmt}"
+    _ConditionnalStmtBase__format_string = "else if({cond}){side_comment}{stmt}"
+    
+class While(ConditionnalStmtBase):
+    """This class represents the C *while* statement."""
+
+    _ConditionnalStmtBase__format_string = "while({cond}){side_comment}{stmt}"
 
 class For(BlockStmt):
+    """This class represents the C *for* statement."""
+    
     init = core.EnsureNode('init', TokenList)
+    """This is the initalization expression (``a`` in ``for(a;b;c){}``)."""
+    
     cond = core.EnsureNode('cond', TokenList)
+    """This is the stop condition (``b`` in ``for(a;b;c){}``)."""
+    
     action = core.EnsureNode('action', TokenList)
+    """This is the expression evaluated each time(``c`` in ``for(a;b;c){}``)."""
+
 
     __format_string = "for({init}; {cond}; {action}){side_comment}{stmt}"
 
@@ -297,7 +323,10 @@ class For(BlockStmt):
 
 
 class DoWhile(BlockStmt):
+    """This class represents the C *do while* statement."""
+    
     cond = core.EnsureNode('cond', TokenList)
+    """This is the stop condition."""
 
     __format_string = "do{side_comment}{stmt}{idt_nl}while({cond});"
     
@@ -315,14 +344,35 @@ class DoWhile(BlockStmt):
             idt_nl = '\n'+str(idt)
         )
 
-class Switch(Node, core.NonIterable, collections.MutableMapping):
+class Switch(Node, core.NonIterable, collections.abc.MutableMapping):
+    """This class represents the C *switch* statement.
+    
+    This class can be used as a dictionary (:class:`collections.abc.MutableMapping`)
+    with the keys as the case values, and the values as the code to execute when the
+    tested expression matches the key.
+    """
+    
     expr = core.EnsureNode('expr', TokenList)
+    """This is the expression to switch on."""
     
     __format_string = "switch({expr}){side_comment}{idt_nl}{{{stmt}{idt_nl}}}"
     __case_format_string = "{idt_nl}case ({case}):{side_comment}{stmt}{auto_break}\n"
     __default_format_string = "{idt_nl}default:{side_comment}{stmt}{auto_break}\n"
 
     def __init__(self, expr=None, case_map=None, auto_break=True, *args, **kwargs):
+        """
+        :param expr: the expression to switch on.
+        :type expr: :class:`.TokenList` 
+        :param case_map: a mapping with keys used as cases and values as
+                         the code to execute (a :class:`.StmtContainer`).
+        
+        :param auto_break: a boolean indicating if a *break* statement should be 
+                           automatically inserted at the end of the code of the 
+                           cases.
+        
+        .. note:: The *case_map* keys are not touched, so you may use them later, they
+                  will not be turned into :class:`.TokenList`.
+        """
         self.expr = expr
         processed_case_map = collections.OrderedDict()
         if isinstance(case_map, collections.Mapping):
@@ -393,6 +443,7 @@ class Switch(Node, core.NonIterable, collections.MutableMapping):
 
 class Var(DelegatedExpr):
     storage_list = core.EnsureNode('storage_list', TokenListContainer)
+    
     type = core.EnsureNode('type',
         node_factory=lambda type: TokenList(type) if type is not None else None,
         node_classinfo=TokenList
@@ -470,13 +521,8 @@ class Var(DelegatedExpr):
                 if decl_type is not None and decl_type.endswith('*'):
                     decl_type = decl_type[:-1].strip()+' *'
                     
-                decl_name = match.group('name')
-                
+                decl_name = match.group('name')                
                 decl_array_size = match.group('array_size')
-                # Replace empty array size with 0
-                if decl_array_size is not None:
-                    decl_array_size = decl_array_size if decl_array_size else 0
-                    
                 decl_initializer = match.group('initializer')
             
             # Make a shallow copy of the other Var
@@ -561,11 +607,6 @@ class VarDecl(NodeView, core.NonIterable):
 
         if self.parent.type is not None:
             if self.parent.array_size is not None:
-                try:
-                    array_size_as_int = int(self.parent.array_size.inline_str(idt))                    
-                except ValueError:
-                    array_size_as_int = 1
-
                 snippet += self.parent.type.inline_str(idt)+" "
                 snippet += self.parent.inline_str(idt)
                 snippet += "["+self.parent.array_size.inline_str(idt)+"]"
