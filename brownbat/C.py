@@ -891,22 +891,52 @@ class _StructUnionMember(Var):
     pass
 
 class StructMember(_StructUnionMember):
-    pass
+    
+    @property
+    def initializer(self):
+        """Special handling of initializer here: if the initializer is gotten, 
+        None is returned, to avoid displaying it in the structure declaration.
+        If set, the content is redirected to default_initializer attribute, 
+        to allow building of a default designated initializer.
+        """
+        return None
+    
+    @initializer.setter
+    def initializer(self, value):
+        # Make sure it is a TokenList, as EnsureNode would do for
+        # the initializer attribute of the Var class.
+        value = TokenList.ensure_node(value)
+        self.default_initializer = value
+    
 
 class UnionMember(_StructUnionMember):
     pass
 
 class _StructUnionBase(CompoundType):
-    def __init__(self, name=None, member_list=None, auto_typedef=True, *args, **kwargs):
-        super().__init__(name, auto_typedef, node_list=member_list, node_classinfo=(_StructUnionMember,core.NodeABC), *args, **kwargs)
-   
+    pass
 
 class Struct(_StructUnionBase):
     _CompoundType__typedef_format_string = "typedef struct {name}{members} {name};{side_comment}"
     _CompoundType__format_string = "struct {name}{members};{side_comment}"
     _CompoundType__forward_declaration_format_string = "struct {name};{side_comment}"
     _CompoundType__forward_declaration_typedef_format_string = "typedef struct {name} {name};"
-
+    
+    def __init__(self, name=None, member_list=None, auto_typedef=True, *args, **kwargs):
+        super().__init__(name, auto_typedef, node_list=member_list, node_classinfo=(StructMember,core.NodeABC), *args, **kwargs)
+    
+    def designated_init(self):
+        return StructDefaultDesignatedInitializer(self)
+    
+class StructDefaultDesignatedInitializer(NodeView, Expr):
+    def __init__(self, parent):
+        self.parent = parent
+    
+    def inline_str(self, idt=None):           
+        snippet = '{'+', '.join(
+            '.'+member.assign(member.default_initializer).inline_str()
+            for member in self.parent.node_list
+        )+'}'
+        return snippet
 
 class Union(_StructUnionBase):
     _CompoundType__typedef_format_string = "typedef union {name}{members} {name};{side_comment}"
@@ -914,6 +944,8 @@ class Union(_StructUnionBase):
     _CompoundType__forward_declaration_format_string = "union {name};{side_comment}"
     _CompoundType__forward_declaration_typedef_format_string = "typedef union {name} {name};"
     
+    def __init__(self, name=None, member_list=None, auto_typedef=True, *args, **kwargs):
+        super().__init__(name, auto_typedef, node_list=member_list, node_classinfo=(UnionMember,core.NodeABC), *args, **kwargs)
     
 
 class Typedef(Node, core.NonIterable):
