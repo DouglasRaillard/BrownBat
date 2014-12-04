@@ -276,7 +276,6 @@ class NodeAttrProxy(NodeABC):
     def adopt_node(self, child):
         return getattr(self.obj, self.attr_name).adopt_node(child)
 
-                    
 class EnsureNode:
     """This class is a descriptor that makes sure that the attribute that uses it holds a reference
     to an instance of one of the classes given in *node_classinfo*.
@@ -305,7 +304,7 @@ class EnsureNode:
         node_classinfo = tuple(node_classinfo)
             
         self.node_classinfo = node_classinfo
-    
+        
     def __get__(self, instance, owner):
         if instance is not None:
             return instance.__dict__[self.storage_attr_name]
@@ -319,7 +318,6 @@ class EnsureNode:
         if not isinstance(value, self.node_classinfo):
             value = self.node_factory(value)
         instance.__dict__[self.storage_attr_name] = value
-        
         
 class NodeBase(NodeABC):
     """This class is the base classes of most nodes.
@@ -378,7 +376,7 @@ class NodeBase(NodeABC):
                 raise NotImplementedError("The given parent does not support child adoption")
         
     def __repr__(self):
-        return(str(type(self))+str(self.__dict__))
+        return str(self)
 
     def freestanding_str(self, idt=None):
         """See :class:`NodeABC` for the role of this function.
