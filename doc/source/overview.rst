@@ -26,10 +26,10 @@ void print_greetings(void)
 }
 
 
-The main features
+Main features
 -----------------
 
-This library is built upon language independent base class. They implement what makes this library
+This library is built upon language independent base classes. They implement what makes this library
 interesting:
 
 * You can use plain strings or objects implementing *__str__* everywhere

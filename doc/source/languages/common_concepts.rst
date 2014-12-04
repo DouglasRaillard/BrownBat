@@ -1,10 +1,12 @@
-===============
-Common concepts
-===============
+==============
+Core concepts
+==============
 
 
 As stated in the overview, this library stands upon some language independent classes.
-They implement some features that you will find everywhere.
+They implement some features that you will find everywhere. All the constructor parameters
+of base class *must* be used as keywords arguments, the order of positinal arguments 
+is not guaranteed except in the leaf classes in the inheritance hierarchy.
 
 Nodes
 -----
