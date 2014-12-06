@@ -180,6 +180,15 @@ class _Expr:
     def cast(self, new_type):
         return Expr(('((',new_type,')(',self,'))'))
     
+    def deref(self):
+        return Expr(('(*(',self,'))'))
+            
+    def paren(self):
+        return Expr(('(',self,')'))
+    
+    def address(self):
+        return Expr(('(&(',self,'))'))
+        
     def __rshift__(self, member):
         """Right shift allows to access structure/union/enum members: 'a'>>'b' will give 'a.b'."""
         return Expr((self,".",member))
@@ -190,16 +199,16 @@ class _Expr:
 
     def __invert__(self):
         """ ~expr will give (&(expr))"""
-        return Expr(('(&(',self,'))'))
+        return self.address()
        
     def __pos__(self):
         """ +expr will give (*(expr))"""
-        return Expr(('(*(',self,'))'))
+        return self.deref()
     
     def __neg__(self):
         """-expr will give (expr)"""
-        return Expr(('(',self,')'))
-    
+        return self.paren()
+
     def __eq__(self, value):
         """expr1 == expr2 will give 'expr1=expr2'."""
         return self.assign(value)
@@ -629,11 +638,11 @@ class VarDecl(NodeView, core.NonIterable):
         super().__init__(*args, **kwargs)
 
 
-    def freestanding_str(self, idt=None):
+    def freestanding_str(self, idt=None, hide_initializer=False):
         idt = core.Indentation.make_idt(idt)
-        return '\n'+str(idt)+self.inline_str(idt)+';'+self.side_comment.inline_str(idt)
+        return '\n'+str(idt)+self.inline_str(idt, hide_initializer=hide_initializer)+';'+self.side_comment.inline_str(idt)
 
-    def inline_str(self, idt=None):
+    def inline_str(self, idt=None, hide_initializer=False):
         storage_list = " ".join(storage.inline_str(idt) for storage in self.parent.storage_list)+" "
         snippet = storage_list.strip()+" "
 
@@ -660,7 +669,7 @@ class VarDecl(NodeView, core.NonIterable):
         else:
                 snippet += self.parent.inline_str(idt)
 
-        if self.parent.initializer is not None:
+        if not hide_initializer and self.parent.initializer is not None:
             snippet += " = "+self.parent.initializer.inline_str(idt)
 
         return snippet.strip()
@@ -669,8 +678,11 @@ class VarDefi(VarDecl):
     pass
 
 class VarExternDecl(VarDecl):
-    def inline_str(self, idt=None):
-        return "extern "+super().inline_str(idt)
+    def inline_str(self, idt=None, hide_initializer=True):
+        return "extern "+super().inline_str(idt, hide_initializer=hide_initializer)
+    
+    def freestanding_str(self, idt=None, hide_initializer=True):
+        return super().freestanding_str(idt, hide_initializer=hide_initializer)
 
 
 class Fun(BlockStmt):
