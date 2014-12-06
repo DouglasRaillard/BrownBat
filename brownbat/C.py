@@ -179,7 +179,10 @@ class _Expr:
     
     def cast(self, new_type):
         return Expr(('((',new_type,')(',self,'))'))
-    
+
+    def rcast(self, casted):
+        return Expr(('((',self,')(',casted,'))'))
+        
     def deref(self):
         return Expr(('(*(',self,'))'))
             
@@ -212,6 +215,10 @@ class _Expr:
     def __eq__(self, value):
         """expr1 == expr2 will give 'expr1=expr2'."""
         return self.assign(value)
+    
+    def __pow__(self, type):
+        """expr1**expr2 will give ((expr1)(expr2))"""
+        return self.rcast(type)
     
     def __rpow__(self, type):
         """'int'**expr will give ((int)(expr))"""
