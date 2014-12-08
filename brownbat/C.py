@@ -288,6 +288,7 @@ class OrderedTypeContainer(StmtContainer):
         # Only touch the a copy
         self_copy = self.copy()
         
+        # Build a dependency graph of unions and structures
         dependency_dict = collections.defaultdict(list)
         for item in self:
             if isinstance(item, (Struct, Union)):
@@ -295,14 +296,20 @@ class OrderedTypeContainer(StmtContainer):
                     if isinstance(member.type, (Struct, Union)):
                         dependency_dict[item].append(member.type)
         
-        print('\n'.join(str(key.name).strip()+':'+', '.join(str(dep.name).strip() for dep in value) for key,value in dependency_dict.items()))
-        
         types_to_reorder = set(dependency_dict.keys())
         for type_list in dependency_dict.values():
             types_to_reorder.update(set(type_list))
+            
         # Remove the type definitions from the container to reorder them
-        self_copy[:] = [item for item in self if item not in types_to_reorder]
-        
+        new_node_list = list()
+        for item in self:
+            try:
+                if item not in types_to_reorder:
+                    new_node_list.append(item)
+            # Add non hashable to the result
+            except TypeError: 
+                new_node_list.append(item)
+                
         # Do a topological sort of the dependency graph of the types
         sorted_node_list = list()
         unmarked = set(dependency_dict.keys())
@@ -324,8 +331,13 @@ class OrderedTypeContainer(StmtContainer):
             node = unmarked.pop()
             visit(node)
         
+        # Add forward declaration to allow using pointers anywhere
+        forward_decl_list = [item.forward_decl() for item in sorted_node_list]
+        
         # Insert the reordered type definitions at the beginning
-        self_copy[:] = sorted_node_list+self_copy[:]
+        self_copy[:] = forward_decl_list+sorted_node_list+[NewLine()]+new_node_list
+        
+        # Print using the StmtContainer.inline_str() method
         return super(OrderedTypeContainer, self_copy).inline_str(idt)
     
 class ConditionnalStmtBase(BlockStmt):
