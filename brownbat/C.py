@@ -840,9 +840,12 @@ class CompoundType(BlockStmt):
     
     def forward_decl(self):
         return CompoundTypeForwardDeclaration(self)
-
-    def __pos__(self):
+    
+    def ptr(self):
         return Expr((self,'*'))
+    
+    def __pos__(self):
+        return self.ptr()
 
 class CompoundTypeForwardDeclaration(NodeView, core.NonIterable):
     def __init__(self, parent):
@@ -1105,8 +1108,9 @@ class Com(TokenListContainer, BaseCom):
         if not string:
             return ''
         
-        first_line = string.split("\n")[0]
-        last_line = string.split("\n")[-1]
+        split_string = string.split("\n")
+        first_line = split_string [0]
+        last_line = split_string [-1]
         # If the first line is not empty, add a few spaces to indentation to
         # align the paragraphs correctly
         if first_line.strip():
@@ -1124,7 +1128,10 @@ class Com(TokenListContainer, BaseCom):
             end_string = self.end_string.strip()
         
         # If the comment cannot fit on a single line and auto wrapping is enabled
-        if self.auto_wrap and len(first_line) > self.max_line_length-len(start_string)-len(end_string)-len(str(idt)):
+        if self.auto_wrap and any(
+            len(line) > self.max_line_length-len(start_string)-len(end_string)-len(str(idt))
+            for line in split_string
+        ):
             string = "\n".join(textwrap.wrap(
                 string,
                 width=self.max_line_length,
