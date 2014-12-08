@@ -288,13 +288,22 @@ class OrderedTypeContainer(StmtContainer):
         # Only touch the a copy
         self_copy = self.copy()
         
+        # Build a dictionary mapping the type names to the type objects
+        type_dict = dict()
+        for item in self:
+            if isinstance(item, (Struct, Union)):
+                type_dict[item.name.inline_str().strip()] = item
+                
         # Build a dependency graph of unions and structures
         dependency_dict = collections.defaultdict(list)
         for item in self:
             if isinstance(item, (Struct, Union)):
                 for member in item:
-                    if isinstance(member.type, (Struct, Union)):
-                        dependency_dict[item].append(member.type)
+                    # Determine dependencies with the type name, to
+                    # allow hardcoded types to be taken into account
+                    member_type_name = member.type.inline_str().strip()
+                    if member_type_name in type_dict:
+                        dependency_dict[item].append(type_dict[member_type_name])
         
         types_to_reorder = set(dependency_dict.keys())
         for type_list in dependency_dict.values():
