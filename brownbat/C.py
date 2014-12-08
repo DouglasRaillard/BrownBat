@@ -1137,6 +1137,10 @@ class Com(TokenListContainer, BaseCom):
             
         return string 
 
+    def freestanding_str(self, idt=None):
+        idt = core.Indentation.make_idt(idt)
+        return '\n\n'+str(idt)+self.inline_str(idt)
+
 class SingleLineCom(DelegatedTokenList, BaseCom):
     content = core.EnsureNode('content', TokenList)
 
