@@ -281,7 +281,52 @@ class BlockStmt(StmtContainer):
         snippet += '\n'+str(idt)+'}'
         
         return snippet
+
+
+class OrderedTypeContainer(StmtContainer):
+    def inline_str(self, idt=None):
+        # Only touch the a copy
+        self_copy = self.copy()
         
+        dependency_dict = collections.defaultdict(list)
+        for item in self:
+            if isinstance(item, (Struct, Union)):
+                for member in item:
+                    if isinstance(member.type, (Struct, Union)):
+                        dependency_dict[item].append(member.type)
+        
+        print('\n'.join(str(key.name).strip()+':'+', '.join(str(dep.name).strip() for dep in value) for key,value in dependency_dict.items()))
+        
+        types_to_reorder = set(dependency_dict.keys())
+        for type_list in dependency_dict.values():
+            types_to_reorder.update(set(type_list))
+        # Remove the type definitions from the container to reorder them
+        self_copy[:] = [item for item in self if item not in types_to_reorder]
+        
+        # Do a topological sort of the dependency graph of the types
+        sorted_node_list = list()
+        unmarked = set(dependency_dict.keys())
+        temporary_marked = set()
+        permanently_marked = set()
+        
+        def visit(node):
+            if node in temporary_marked:
+                raise ValueError('The dependency graph of compound types is not a DAG')
+            elif node not in permanently_marked:
+                temporary_marked.add(node)
+                for dep_node in dependency_dict[node]:
+                    visit(dep_node)
+                permanently_marked.add(node)
+                temporary_marked.discard(node)
+                sorted_node_list.append(node)
+        
+        while unmarked:
+            node = unmarked.pop()
+            visit(node)
+        
+        # Insert the reordered type definitions at the beginning
+        self_copy[:] = sorted_node_list+self_copy[:]
+        return super(OrderedTypeContainer, self_copy).inline_str(idt)
     
 class ConditionnalStmtBase(BlockStmt):
     cond = core.EnsureNode('cond', TokenList)
@@ -807,6 +852,12 @@ class Type(DelegatedTokenList, core.NonIterable):
         super().__init__(tokenlist_attr_name='name', *args, **kwargs)
 
 
+class TypePointer(NodeView):
+    def __init__(self, parent):
+        self.parent = parent
+    
+    def inline_str(self, idt=None):
+        return self.parent.inline_str(idt)+'*'
 
 class CompoundType(BlockStmt):
     name = core.EnsureNode('name', TokenList)
@@ -829,7 +880,7 @@ class CompoundType(BlockStmt):
         # The format string do not contain the newline and indentation
         # at their beginning to be consistent with the format string of
         # other classes
-        format_string = '\n'+str(idt)+format_string
+        format_string = '\n\n'+str(idt)+format_string
        
         return format_string.format(
             name = self.name.inline_str(idt),
@@ -842,7 +893,7 @@ class CompoundType(BlockStmt):
         return CompoundTypeForwardDeclaration(self)
     
     def ptr(self):
-        return Expr((self,'*'))
+        return TypePointer(self)
     
     def __pos__(self):
         return self.ptr()
