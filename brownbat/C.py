@@ -284,6 +284,14 @@ class BlockStmt(StmtContainer):
 
 
 class OrderedTypeContainer(StmtContainer):
+    """This class is a container that automatically reorder
+    compound type definitions to satisfy the dependencies.
+    
+    It inserts the reordered type definitions at the beginning,
+    and also include a forward declaration for each type, to allow
+    pointer cross-referencing.
+    """
+    
     def inline_str(self, idt=None):
         # Only touch the a copy
         self_copy = self.copy()
@@ -321,13 +329,12 @@ class OrderedTypeContainer(StmtContainer):
                 
         # Do a topological sort of the dependency graph of the types
         sorted_node_list = list()
-        unmarked = set(dependency_dict.keys())
         temporary_marked = set()
         permanently_marked = set()
         
         def visit(node):
             if node in temporary_marked:
-                raise ValueError('The dependency graph of compound types is not a DAG')
+                raise ValueError('The dependency graph of compound types is not a DAG, cannot sort the type definitions')
             elif node not in permanently_marked:
                 temporary_marked.add(node)
                 for dep_node in dependency_dict[node]:
@@ -336,8 +343,7 @@ class OrderedTypeContainer(StmtContainer):
                 temporary_marked.discard(node)
                 sorted_node_list.append(node)
         
-        while unmarked:
-            node = unmarked.pop()
+        for node in tuple(dependency_dict.keys()):
             visit(node)
         
         # Add forward declaration to allow using pointers anywhere
