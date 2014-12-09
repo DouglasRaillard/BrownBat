@@ -305,7 +305,7 @@ class OrderedTypeContainer(StmtContainer):
         # Build a dependency graph of unions and structures
         dependency_dict = collections.defaultdict(list)
         # Build a dependency graph of unions and structures that takes pointers into account
-        loose_dependency_dict = collections.defaultdict(list)
+        weak_dependency_dict = collections.defaultdict(list)
         for item in type_dict.values():
             for member in item:
                 # Determine dependencies with the type name, to
@@ -315,9 +315,9 @@ class OrderedTypeContainer(StmtContainer):
                     dependency_dict[item].append(type_dict[member_type_name])
                 else:
                     # Try to find something like a pointer to a known type
-                    for type_name in type_dict.keys():
-                        if type_name in member_type_name:
-                            loose_dependency_dict[item].append(type_dict[type_name])
+                    stripped_member_type_name = member_type_name.replace('*', ' ').strip()
+                    if stripped_member_type_name in type_dict:
+                        weak_dependency_dict[item].append(type_dict[stripped_member_type_name])
         
         types_to_reorder = set(dependency_dict.keys())
         for type_list in dependency_dict.values():
@@ -338,33 +338,33 @@ class OrderedTypeContainer(StmtContainer):
         temporary_marked = set()
         permanently_marked = set()
         
-        def visit(node):
+        print([str(node.name).strip()+':'+str([str(node.name).strip() for node in node_list]) for node,node_list in weak_dependency_dict.items()])
+        
+        forward_decl_type_set = set()
+        def visit(node, weak_dependency=False):
             if node in temporary_marked:
-                raise ValueError('The dependency graph of compound types is not a DAG, cannot sort the type definitions')
+                # If we are processing a weak dependency, it means that a forward declaration
+                # can be used to break the cycle, so add the node to the list of forward
+                # declaration and do not trigger an error
+                if weak_dependency:
+                    forward_decl_type_set.add(node)
+                else:
+                    raise ValueError('The dependency graph of compound types is not a DAG, cannot sort the type definitions')
             elif node not in permanently_marked:
                 temporary_marked.add(node)
                 for dep_node in dependency_dict[node]:
                     visit(dep_node)
+                for dep_node in weak_dependency_dict[node]:
+                    visit(dep_node, weak_dependency=True)
                 permanently_marked.add(node)
                 temporary_marked.discard(node)
                 sorted_node_list.append(node)
+ 
         
         for node in tuple(dependency_dict.keys()):
             visit(node)
         
-        # Add forward declaration to allow using pointers anywhere
-        forward_decl_set = set()
-        for type_, dep_type_list in loose_dependency_dict.items():
-            for dep_type in dep_type_list:
-                try:
-                    # Only add forward declaration if necessary
-                    if sorted_node_list.index(type_) < sorted_node_list.index(dep_type):
-                        forward_decl_set.add(dep_type)
-                # If dep_type is not in sorted_node_list, because it has no strong dependencies 
-                except ValueError:
-                    forward_decl_set.add(dep_type)
-                    
-        forward_decl_list = [item.forward_decl() for item in forward_decl_set]
+        forward_decl_list = [item.forward_decl() for item in forward_decl_type_set]
 
         # Insert the reordered type definitions at the beginning
         self_copy[:] = forward_decl_list+sorted_node_list+[NewLine()]+new_node_list
