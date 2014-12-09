@@ -322,6 +322,8 @@ class OrderedTypeContainer(StmtContainer):
         types_to_reorder = set(dependency_dict.keys())
         for type_list in dependency_dict.values():
             types_to_reorder.update(set(type_list))
+        for type_list in weak_dependency_dict.values():
+            types_to_reorder.update(set(type_list))    
             
         # Remove the type definitions from the container to reorder them
         new_node_list = list()
@@ -338,24 +340,35 @@ class OrderedTypeContainer(StmtContainer):
         temporary_marked = set()
         permanently_marked = set()
         
-        print([str(node.name).strip()+':'+str([str(node.name).strip() for node in node_list]) for node,node_list in weak_dependency_dict.items()])
-        
         forward_decl_type_set = set()
-        def visit(node, weak_dependency=False):
+        def visit(node):
+            nonlocal temporary_marked
+            nonlocal permanently_marked
+            nonlocal sorted_node_list
             if node in temporary_marked:
-                # If we are processing a weak dependency, it means that a forward declaration
-                # can be used to break the cycle, so add the node to the list of forward
-                # declaration and do not trigger an error
-                if weak_dependency:
-                    forward_decl_type_set.add(node)
-                else:
-                    raise ValueError('The dependency graph of compound types is not a DAG, cannot sort the type definitions')
+                raise ValueError('The dependency graph of compound types is not a DAG, cannot sort the type definitions')
             elif node not in permanently_marked:
                 temporary_marked.add(node)
                 for dep_node in dependency_dict[node]:
                     visit(dep_node)
                 for dep_node in weak_dependency_dict[node]:
-                    visit(dep_node, weak_dependency=True)
+                    try:
+                        # Backup all data structures in case the DFS fails
+                        sorted_node_list_backup = copy.copy(sorted_node_list)
+                        temporary_marked_backup = copy.copy(temporary_marked)
+                        permanently_marked_backup = copy.copy(permanently_marked)
+                        forward_decl_type_set_backup = copy.copy(forward_decl_type_set)
+                        
+                        visit(dep_node)
+
+                    except ValueError:
+                        forward_decl_type_set.add(dep_node)
+                        # Restore bookkeeping data
+                        sorted_node_list = sorted_node_list_backup
+                        temporary_marked = temporary_marked_backup
+                        permanently_marked = permanently_marked_backup
+                        
+
                 permanently_marked.add(node)
                 temporary_marked.discard(node)
                 sorted_node_list.append(node)
