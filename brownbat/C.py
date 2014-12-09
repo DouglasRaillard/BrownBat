@@ -316,6 +316,10 @@ class OrderedTypeContainer(StmtContainer):
                 
                 # Try to find a type with the exact name
                 try:
+                    # Even if type_dict[member_type_name] raises an exception,
+                    # the defaultdict will create an default empty list when
+                    # trying to access [item], so all types are represented in
+                    # dependency_dict.keys()
                     dependency_dict[item].append(type_dict[member_type_name])
                 # If the type name is not found, try to add it as a weak dependency
                 except KeyError:
@@ -326,7 +330,7 @@ class OrderedTypeContainer(StmtContainer):
                     # If nothing was found, give up
                     except KeyError:
                         pass
-                                   
+                    
         # Do a topological sort of the dependency graph of the types
         sorted_node_list = list()
         temporary_marked = set()
@@ -366,7 +370,10 @@ class OrderedTypeContainer(StmtContainer):
                 sorted_node_list.append(node)
  
         
-        for node in list(dependency_dict.keys())+list(weak_dependency_dict.keys()):
+        # All types are represented in dependency_dict.keys() because
+        # the defaultdict creates at least an empty dependency list for 
+        # each type found in the container
+        for node in dependency_dict.keys():
             visit(node)
         
 
