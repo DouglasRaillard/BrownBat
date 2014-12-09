@@ -297,11 +297,12 @@ class OrderedTypeContainer(StmtContainer):
         self_copy = self.copy()
         
         # Build a dictionary mapping the type names to the type objects
-        type_dict = dict()
+        type_dict = collections.OrderedDict()
         for item in self:
             if isinstance(item, (Struct, Union)):
                 type_dict[item.name.inline_str().strip()] = item
-                
+        
+        types_to_sort_list = list()
         # Build a dependency graph of unions and structures
         dependency_dict = collections.defaultdict(list)
         # Build a dependency graph of unions and structures that takes pointers into account
@@ -321,6 +322,9 @@ class OrderedTypeContainer(StmtContainer):
                     # to avoid triggering the creation of an empty list, and having 
                     # a key in dependency_dict with no dependencies
                     dependency_dict[item].append(type_)
+                    
+                    # Build a list of types that will be reordered
+                    types_to_sort_list.append(item)
                 # If the type name is not found, try to add it as a weak dependency
                 except KeyError:
                     # Try to find something that looks like a pointer to a known type
@@ -331,10 +335,13 @@ class OrderedTypeContainer(StmtContainer):
                         # a key in weak_dependency_dict with no dependencies
                         type_ = type_dict[stripped_member_type_name]
                         weak_dependency_dict[item].append(type_)
+                       
+                       # Build a list of types that will be reordered
+                        types_to_sort_list.append(item)               
                     # If nothing was found, give up
                     except KeyError:
                         pass
-                    
+        
         # Do a topological sort of the dependency graph of the types
         sorted_node_list = list()
         temporary_marked = set()
@@ -375,7 +382,8 @@ class OrderedTypeContainer(StmtContainer):
  
         
         # Only consider types that have dependencies
-        for node in set(list(dependency_dict.keys())+list(weak_dependency_dict.keys())):
+        # types_to_sort_list may have duplicates
+        for node in types_to_sort_list:
             visit(node)
         
 
