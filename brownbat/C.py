@@ -326,12 +326,7 @@ class OrderedTypeContainer(StmtContainer):
                     # If nothing was found, give up
                     except KeyError:
                         pass
-                        
-        
-        types_to_reorder = set(dependency_dict.keys())
-        for type_list in list(dependency_dict.values())+list(weak_dependency_dict.values()):
-            types_to_reorder.update(set(type_list))
-            
+                                   
         # Do a topological sort of the dependency graph of the types
         sorted_node_list = list()
         temporary_marked = set()
@@ -371,7 +366,7 @@ class OrderedTypeContainer(StmtContainer):
                 sorted_node_list.append(node)
  
         
-        for node in tuple(dependency_dict.keys()):
+        for node in list(dependency_dict.keys())+list(weak_dependency_dict.keys()):
             visit(node)
         
 
