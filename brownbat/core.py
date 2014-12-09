@@ -375,8 +375,6 @@ class NodeBase(NodeABC):
             else:
                 raise NotImplementedError("The given parent does not support child adoption")
         
-    def __repr__(self):
-        return str(self)
 
     def freestanding_str(self, idt=None):
         """See :class:`NodeABC` for the role of this function.
