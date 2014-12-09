@@ -316,17 +316,21 @@ class OrderedTypeContainer(StmtContainer):
                 
                 # Try to find a type with the exact name
                 try:
-                    # Even if type_dict[member_type_name] raises an exception,
-                    # the defaultdict will create an default empty list when
-                    # trying to access [item], so all types are represented in
-                    # dependency_dict.keys()
-                    dependency_dict[item].append(type_dict[member_type_name])
+                    type_ = type_dict[member_type_name]
+                    # Only try to access [item] key after making sure the type exists,
+                    # to avoid triggering the creation of an empty list, and having 
+                    # a key in dependency_dict with no dependencies
+                    dependency_dict[item].append(type_)
                 # If the type name is not found, try to add it as a weak dependency
                 except KeyError:
                     # Try to find something that looks like a pointer to a known type
                     stripped_member_type_name = member_type_name.translate(transtable).strip()
                     try:
-                        weak_dependency_dict[item].append(type_dict[stripped_member_type_name])
+                        # Only try to access [item] key after making sure the type exists,
+                        # to avoid triggering the creation of an empty list, and having 
+                        # a key in weak_dependency_dict with no dependencies
+                        type_ = type_dict[stripped_member_type_name]
+                        weak_dependency_dict[item].append(type_)
                     # If nothing was found, give up
                     except KeyError:
                         pass
@@ -370,21 +374,21 @@ class OrderedTypeContainer(StmtContainer):
                 sorted_node_list.append(node)
  
         
-        # All types are represented in dependency_dict.keys() because
-        # the defaultdict creates at least an empty dependency list for 
-        # each type found in the container
-        for node in dependency_dict.keys():
+        # Only consider types that have dependencies
+        for node in set(list(dependency_dict.keys())+list(weak_dependency_dict.keys())):
             visit(node)
         
 
         # Build a list of nodes that do not contain the reordered type definitions
-        new_node_list = [item for item in self if item not in sorted_node_list]
+        # We must be carefull, as the 'not in' operator for lists tests for equality
+        sorted_node_id_list = [id(node) for node in sorted_node_list]
+        remaining_node_list = [item for item in self if id(item) not in sorted_node_id_list]
         
         # Build a list of forward declaration to add before type definitions
         forward_decl_list = [item.forward_decl() for item in forward_decl_type_set]
 
         # Insert the reordered type definitions at the beginning
-        self_copy[:] = forward_decl_list+sorted_node_list+[NewLine()]+new_node_list
+        self_copy[:] = forward_decl_list+sorted_node_list+[NewLine()]+remaining_node_list
         
         # Print using the StmtContainer.inline_str() method
         return super(OrderedTypeContainer, self_copy).inline_str(idt)
