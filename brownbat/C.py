@@ -306,35 +306,32 @@ class OrderedTypeContainer(StmtContainer):
         dependency_dict = collections.defaultdict(list)
         # Build a dependency graph of unions and structures that takes pointers into account
         weak_dependency_dict = collections.defaultdict(list)
+        # Translation table used to remove character from type name to analyse weak dependencies
+        transtable = str.maketrans({char:None for char in '*()'})
         for item in type_dict.values():
             for member in item:
                 # Determine dependencies with the type name, to
                 # allow hardcoded types to be taken into account
                 member_type_name = member.type.inline_str().strip()
-                if member_type_name in type_dict:
+                
+                # Try to find a type with the exact name
+                try:
                     dependency_dict[item].append(type_dict[member_type_name])
-                else:
-                    # Try to find something like a pointer to a known type
-                    stripped_member_type_name = member_type_name.replace('*', ' ').strip()
-                    if stripped_member_type_name in type_dict:
+                # If the type name is not found, try to add it as a weak dependency
+                except KeyError:
+                    # Try to find something that looks like a pointer to a known type
+                    stripped_member_type_name = member_type_name.translate(transtable).strip()
+                    try:
                         weak_dependency_dict[item].append(type_dict[stripped_member_type_name])
+                    # If nothing was found, give up
+                    except KeyError:
+                        pass
+                        
         
         types_to_reorder = set(dependency_dict.keys())
-        for type_list in dependency_dict.values():
+        for type_list in list(dependency_dict.values())+list(weak_dependency_dict.values()):
             types_to_reorder.update(set(type_list))
-        for type_list in weak_dependency_dict.values():
-            types_to_reorder.update(set(type_list))    
             
-        # Remove the type definitions from the container to reorder them
-        new_node_list = list()
-        for item in self:
-            try:
-                if item not in types_to_reorder:
-                    new_node_list.append(item)
-            # Add non hashable to the result
-            except TypeError: 
-                new_node_list.append(item)
-                
         # Do a topological sort of the dependency graph of the types
         sorted_node_list = list()
         temporary_marked = set()
@@ -377,6 +374,11 @@ class OrderedTypeContainer(StmtContainer):
         for node in tuple(dependency_dict.keys()):
             visit(node)
         
+
+        # Build a list of nodes that do not contain the reordered type definitions
+        new_node_list = [item for item in self if item not in sorted_node_list]
+        
+        # Build a list of forward declaration to add before type definitions
         forward_decl_list = [item.forward_decl() for item in forward_decl_type_set]
 
         # Insert the reordered type definitions at the beginning
