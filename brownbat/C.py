@@ -304,14 +304,20 @@ class OrderedTypeContainer(StmtContainer):
                 
         # Build a dependency graph of unions and structures
         dependency_dict = collections.defaultdict(list)
-        for item in self:
-            if isinstance(item, (Struct, Union)):
-                for member in item:
-                    # Determine dependencies with the type name, to
-                    # allow hardcoded types to be taken into account
-                    member_type_name = member.type.inline_str().strip()
-                    if member_type_name in type_dict:
-                        dependency_dict[item].append(type_dict[member_type_name])
+        # Build a dependency graph of unions and structures that takes pointers into account
+        loose_dependency_dict = collections.defaultdict(list)
+        for item in type_dict.values():
+            for member in item:
+                # Determine dependencies with the type name, to
+                # allow hardcoded types to be taken into account
+                member_type_name = member.type.inline_str().strip()
+                if member_type_name in type_dict:
+                    dependency_dict[item].append(type_dict[member_type_name])
+                else:
+                    # Try to find something like a pointer to a known type
+                    for type_name in type_dict.keys():
+                        if type_name in member_type_name:
+                            loose_dependency_dict[item].append(type_dict[type_name])
         
         types_to_reorder = set(dependency_dict.keys())
         for type_list in dependency_dict.values():
@@ -347,8 +353,19 @@ class OrderedTypeContainer(StmtContainer):
             visit(node)
         
         # Add forward declaration to allow using pointers anywhere
-        forward_decl_list = [item.forward_decl() for item in sorted_node_list]
-        
+        forward_decl_set = set()
+        for type_, dep_type_list in loose_dependency_dict.items():
+            for dep_type in dep_type_list:
+                try:
+                    # Only add forward declaration if necessary
+                    if sorted_node_list.index(type_) < sorted_node_list.index(dep_type):
+                        forward_decl_set.add(dep_type)
+                # If dep_type is not in sorted_node_list, because it has no strong dependencies 
+                except ValueError:
+                    forward_decl_set.add(dep_type)
+                    
+        forward_decl_list = [item.forward_decl() for item in forward_decl_set]
+
         # Insert the reordered type definitions at the beginning
         self_copy[:] = forward_decl_list+sorted_node_list+[NewLine()]+new_node_list
         
