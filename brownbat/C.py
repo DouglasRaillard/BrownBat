@@ -757,11 +757,6 @@ class Var(DelegatedExpr):
 class VarDecl(NodeView, core.NonIterable):
     # Regex used to match type names using stars (pointers) and adjust spaces
     star_space_handling_regex = re.compile('^\s*(?P<name>[^\*]*)(\s)*(?P<stars>\*+)\s*$')
-    
-    def __init__(self, var, *args, **kwargs):
-        self.parent = var
-        super().__init__(*args, **kwargs)
-
 
     def freestanding_str(self, idt=None, hide_initializer=False, hide_array_size=False):
         idt = core.Indentation.make_idt(idt)
@@ -864,10 +859,6 @@ class FunParam(Var):
 
 class FunDef(NodeView):
     __format_string = "{idt_nl}{storage_list}{type}{name}({param_list}){side_comment}{body}"
-    
-    def __init__(self, function, *args, **kwargs):
-        self.parent = function
-        super().__init__(*args, **kwargs)
 
     def inline_str(self, idt=None):
         storage_list = " ".join(storage.inline_str(idt) for storage in self.parent.storage_list)+" "
@@ -892,10 +883,6 @@ class FunDef(NodeView):
 
 class FunDecl(NodeView):
     __format_string = "{storage_list}{type}{name}({param_list});{side_comment}"
-
-    def __init__(self, function, *args, **kwargs):
-        self.parent = function
-        super().__init__(*args, **kwargs)
 
     def inline_str(self, idt=None):
         storage_list = " ".join(storage.inline_str(idt) for storage in self.parent.storage_list)+" "
@@ -922,12 +909,11 @@ class FunCall(NodeView, Expr, core.NonIterable):
     
     __format_string = "{name}({param_list})"
 
-    def __init__(self, function, param_list=None, param_joiner=None, *args, **kwargs):
-        self.parent = function
+    def __init__(self, parent, param_list=None, param_joiner=None, *args, **kwargs):
         self.param_list = param_list
         if param_joiner is not None:
             self.param_joiner = param_joiner
-        super().__init__(self, *args, **kwargs)
+        super().__init__(self, parent=parent, *args, **kwargs)
 
     def inline_str(self, idt=None):
         return self.__format_string.format(
@@ -944,10 +930,7 @@ class Type(DelegatedTokenList, core.NonIterable):
         super().__init__(tokenlist_attr_name='name', *args, **kwargs)
 
 
-class TypePointer(NodeView):
-    def __init__(self, parent):
-        self.parent = parent
-    
+class TypePointer(NodeView):   
     def inline_str(self, idt=None):
         return self.parent.inline_str(idt)+'*'
 
@@ -958,6 +941,9 @@ class CompoundType(BlockStmt):
         self.name = name
         self.auto_typedef = auto_typedef
         super().__init__(*args, **kwargs)
+
+    def anonymous(self):
+        return CompoundTypeAnonymousView(self)
 
     def inline_str(self, idt=None):
         return self.name.inline_str(idt)
@@ -990,10 +976,16 @@ class CompoundType(BlockStmt):
     def __pos__(self):
         return self.ptr()
 
-class CompoundTypeForwardDeclaration(NodeView, core.NonIterable):
-    def __init__(self, parent):
-        self.parent = parent
-    
+class CompoundTypeAnonymousView(NodeView):
+    def inline_str(self, idt=None):
+        return (self.parent.__prefix_string+' {'+
+            self.parent.__separator_string.join(
+                member.decl().inline_str()
+                for member in self.parent
+                )+
+            self.parent.__separator_string.rstrip()+'}')
+            
+class CompoundTypeForwardDeclaration(NodeView, core.NonIterable):    
     def inline_str(self, idt=None):
         idt = core.Indentation.make_idt(idt)
         format_string = self.parent._CompoundType__forward_declaration_format_string
@@ -1030,7 +1022,8 @@ class Enum(CompoundType):
     _CompoundType__format_string = "enum {name}{members};{side_comment}"
     _CompoundType__forward_declaration_format_string = "enum {name};{side_comment}"
     _CompoundType__forward_declaration_typedef_format_string = "typedef enum {name} {name};"
-    
+    _CompoundTypeAnonymousView__prefix_string = 'enum'
+    _CompoundTypeAnonymousView__separator_string = ', '
     
     def __init__(self, name=None, member_list=None, auto_typedef=True, *args, **kwargs):
         super().__init__(name, auto_typedef, node_list=member_list, node_classinfo=EnumMember, *args, **kwargs)
@@ -1074,42 +1067,137 @@ class UnionMember(Var):
     pass
 
 class _StructUnionBase(CompoundType):
-    pass
+    _CompoundTypeAnonymousView__separator_string = '; '
 
 class Struct(_StructUnionBase):
     _CompoundType__typedef_format_string = "typedef struct {name}{members} {name};{side_comment}"
     _CompoundType__format_string = "struct {name}{members};{side_comment}"
     _CompoundType__forward_declaration_format_string = "struct {name};{side_comment}"
     _CompoundType__forward_declaration_typedef_format_string = "typedef struct {name} {name};"
+    _CompoundTypeAnonymousView__prefix_string = 'struct'
     
     def __init__(self, name=None, member_list=None, auto_typedef=True, *args, **kwargs):
         super().__init__(name, auto_typedef, node_list=member_list, node_classinfo=(StructMember), *args, **kwargs)
     
     def designated_init(self):
         return StructDefaultDesignatedInitializer(self)
-    
-class StructDefaultDesignatedInitializer(NodeView, Expr):
-    def __init__(self, parent):
-        self.parent = parent
-    
-    def inline_str(self, idt=None):
-        # Filter out the members that do not have any default initializer
-        node_list = (
-            member for member in self.parent.node_list
-            if member.default_initializer.inline_str()
-        )
+
+class DesignatedInitializer(Expr, collections.abc.MutableMapping):
+    def __init__(self, value_map=None, *args, **kwargs):
+        self.value_map = collections.OrderedDict()
         
+        if isinstance(value_map, collections.abc.Mapping):
+            for key, value in value_map.items():
+                self[key] = TokenList.ensure_node(value)
+        
+        super().__init__(*args, **kwargs)
+
+    def inline_str(self, idt=None):
+        # Filter out the members that do not have any initializer
         snippet = '{'+', '.join(
-            '.'+member.assign(member.default_initializer).inline_str()
-            for member in node_list
+            '.'+TokenList(member).inline_str()+'='+value.inline_str()
+            for member,value in self.value_map.items() if value.inline_str()
         )+'}'
+        
         return snippet
+    
+    def struct(self, type_translation_map=None, name=None, auto_typedef=True):
+        
+        def default_translator(value):
+            """This translator uses the type_translation_map as a mapping
+            of Python types to C types (strings).
+            """
+            # TokenList are treated as a special case: we decapsulate
+            # the first token to find its type
+            if isinstance(value, core.TokenListABC):
+                return type_translation_map[type(value[0])]
+            else:
+                return type_translation_map[type(value)]
+        
+        if isinstance(type_translation_map, collections.abc.Mapping):
+            # The translator compare the first token in TokenList, because
+            # values are always instances of TokenList
+            translate_type = default_translator
+        elif callable(type_translation_map):
+            translate_type = type_translation_map
+        else:
+            raise ValueError('type_translation_map must be either callable or a mapping')
+        
+        struct = Struct(
+            name = name,
+            auto_typedef = auto_typedef,
+            side_comment = self.side_comment,
+            comment = self.comment
+        )
+
+        for member, value in self.items():
+            # If there is a nested designated intializer, output an anonymous 
+            # struct type for the member
+            if isinstance(value, DesignatedInitializer):
+                type_ = value.struct(type_translation_map=type_translation_map).anonymous()
+            else:
+                type_ = translate_type(value) 
+                
+            struct.append(StructMember(
+                name = member,
+                # Set the initializer, so we can use Struct.designated_init() on the resulting structure
+                initializer = value,
+                type = type_
+            ))
+            
+        return struct
+    
+    def __getitem__(self, key):
+        # If the key is a string, try to catch any reference
+        # to a nested member, and forward it to the nested
+        # DesignatedInitializer instance
+        if isinstance(key, str):
+            split_key = key.split('.')
+            if len(split_key) > 1:
+                nested_member = '.'.join(split_key[1:])
+                return self.value_map[split_key[0]][nested_member]
+            return self.value_map[key]
+        else:
+            return self.value_map[key]
+    
+    def __setitem__(self, key, value):
+        value = TokenList.ensure_node(value)
+        # If the key is a string, try to catch any reference
+        # to a nested member, and forward it to the nested
+        # DesignatedInitializer instance        
+        if isinstance(key, str):
+            split_key = key.split('.')
+            if len(split_key) > 1:
+                nested_member = '.'.join(split_key[1:])
+                self.value_map.setdefault(split_key[0], DesignatedInitializer())[nested_member] = value
+            else:
+                self.value_map[key] = value
+        else:
+            self.value_map[key] = value
+        
+    def __delitem__(self, key):
+        del self.value_map[key]
+        
+    def __len__(self):
+        return len(self.value_map)
+    
+    def __iter__(self):
+        return iter(self.value_map)
+    
+class StructDefaultDesignatedInitializer(NodeView, Expr):   
+    def inline_str(self, idt=None):
+        return DesignatedInitializer(collections.OrderedDict(
+            (member.inline_str(),member.default_initializer)
+            for member in self.parent.node_list
+        )).inline_str(idt)
+        
 
 class Union(_StructUnionBase):
     _CompoundType__typedef_format_string = "typedef union {name}{members} {name};{side_comment}"
     _CompoundType__format_string= "union {name}{members};{side_comment}"
     _CompoundType__forward_declaration_format_string = "union {name};{side_comment}"
     _CompoundType__forward_declaration_typedef_format_string = "typedef union {name} {name};"
+    _CompoundTypeAnonymousView__prefix_string = 'union'
     
     def __init__(self, name=None, member_list=None, auto_typedef=True, *args, **kwargs):
         super().__init__(name, auto_typedef, node_list=member_list, node_classinfo=(UnionMember,core.NodeABC), *args, **kwargs)
