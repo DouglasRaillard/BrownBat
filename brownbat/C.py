@@ -1170,7 +1170,7 @@ class Prep(Node, core.NonIterable):
 
     def __init__(self, directive=None, param_list=None, *args, **kwargs):
         self.directive = directive
-        self.param_list = core.listify(param_list)
+        self.param_list = param_list
         super().__init__(*args, **kwargs)
         
     def inline_str(self, idt=None):
@@ -1184,18 +1184,21 @@ class Prep(Node, core.NonIterable):
         
 
 class PrepDef(Prep):
+    name = core.EnsureNode('name', TokenList)
+    value = core.EnsureNode('value', TokenList)
+    
     def __init__(self, name=None, value=None, *args, **kwargs):
         self.name = name
         self.value = value
         super().__init__("define", (core.NodeAttrProxy(self, 'name'), core.NodeAttrProxy(self, 'value')), *args, **kwargs)
 
-    def inline_str(self, idt=None):
-        return self.param_list[0].inline_str(idt)
 
 class PrepInclude(Prep):
+    header_path = core.EnsureNode('header_path', TokenList)
+    
     def __init__(self, header_path=None, system=False, *args, **kwargs):
         
-        self.header_path = TokenList(header_path)
+        self.header_path = header_path
         header_path_proxy = core.NodeAttrProxy(self, 'header_path')
 
         if system:
@@ -1229,6 +1232,13 @@ class PrepIf(StmtContainer):
             side_comment = self.side_comment.inline_str(idt),
             idt_nl = '\n'+str(idt)
         )
+
+class PrepIfDef(PrepIf):
+    _PrepIf__format_string = "#ifdef {cond}{side_comment}{stmt}{idt_nl}#endif //ifdef {cond}"
+
+class PrepIfNDef(PrepIf):
+    _PrepIf__format_string = "#ifndef {cond}{side_comment}{stmt}{idt_nl}#endif //ifndef {cond}"
+
 
 class BaseCom(Node, core.NonIterable):
     pass
