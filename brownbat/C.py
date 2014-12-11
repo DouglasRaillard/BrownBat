@@ -212,10 +212,6 @@ class _Expr:
         """-expr will give (expr)"""
         return self.paren()
 
-    def __eq__(self, value):
-        """expr1 == expr2 will give 'expr1=expr2'."""
-        return self.assign(value)
-    
     def __pow__(self, type):
         """expr1**expr2 will give ((expr1)(expr2))"""
         return self.rcast(type)
