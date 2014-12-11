@@ -1162,7 +1162,7 @@ class FunPtrTypedef(DelegatedTokenList, core.NonIterable):
             side_comment = self.side_comment.inline_str(idt)
         )
 
-class Prep(Node, core.NonIterable):
+class OneLinePrepBase(Node, core.NonIterable):
     directive = core.EnsureNode('directive', TokenList)
     param_list = core.EnsureNode('param_list', TokenListContainer)
     
@@ -1183,7 +1183,7 @@ class Prep(Node, core.NonIterable):
         )
         
 
-class PrepDef(Prep):
+class PrepDef(OneLinePrepBase):
     name = core.EnsureNode('name', TokenList)
     value = core.EnsureNode('value', TokenList)
     
@@ -1193,7 +1193,7 @@ class PrepDef(Prep):
         super().__init__("define", (core.NodeAttrProxy(self, 'name'), core.NodeAttrProxy(self, 'value')), *args, **kwargs)
 
 
-class PrepInclude(Prep):
+class PrepInclude(OneLinePrepBase):
     header_path = core.EnsureNode('header_path', TokenList)
     
     def __init__(self, header_path=None, system=False, *args, **kwargs):
