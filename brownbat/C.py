@@ -763,11 +763,11 @@ class VarDecl(NodeView, core.NonIterable):
         super().__init__(*args, **kwargs)
 
 
-    def freestanding_str(self, idt=None, hide_initializer=False):
+    def freestanding_str(self, idt=None, hide_initializer=False, hide_array_size=False):
         idt = core.Indentation.make_idt(idt)
-        return '\n'+str(idt)+self.inline_str(idt, hide_initializer=hide_initializer)+';'+self.side_comment.inline_str(idt)
+        return '\n'+str(idt)+self.inline_str(idt, hide_initializer=hide_initializer, hide_array_size=hide_array_size)+';'+self.side_comment.inline_str(idt)
 
-    def inline_str(self, idt=None, hide_initializer=False):
+    def inline_str(self, idt=None, hide_initializer=False, hide_array_size=False):
         storage_list = " ".join(storage.inline_str(idt) for storage in self.parent.storage_list)+" "
         snippet = storage_list.strip()+" "
 
@@ -775,7 +775,11 @@ class VarDecl(NodeView, core.NonIterable):
             if self.parent.array_size is not None:
                 snippet += self.parent.type.inline_str(idt)+" "
                 snippet += self.parent.inline_str(idt)
-                snippet += "["+self.parent.array_size.inline_str(idt)+"]"
+                if not hide_array_size:
+                    array_size = self.parent.array_size.inline_str(idt)
+                else:
+                    array_size = ''
+                snippet += "["+array_size+"]"
 
             else:
                 type_str = self.parent.type.inline_str(idt)
@@ -803,11 +807,26 @@ class VarDefi(VarDecl):
     pass
 
 class VarExternDecl(VarDecl):
-    def inline_str(self, idt=None, hide_initializer=True):
-        return "extern "+super().inline_str(idt, hide_initializer=hide_initializer)
+    def __init__(self, var, hide_initializer=True, hide_array_size=True, *args, **kwargs):
+        self.hide_initializer=hide_initializer
+        self.hide_array_size = hide_array_size
+        super().__init__(var, *args, **kwargs)
+        
+    def inline_str(self, idt=None, hide_initializer=None, hide_array_size=None):
+        if hide_initializer is None:
+            hide_initializer = self.hide_initializer
+        if hide_array_size is None:
+            hide_array_size = self.hide_array_size
+            
+        return "extern "+super().inline_str(idt, hide_initializer=hide_initializer, hide_array_size=hide_array_size)
     
-    def freestanding_str(self, idt=None, hide_initializer=True):
-        return super().freestanding_str(idt, hide_initializer=hide_initializer)
+    def freestanding_str(self, idt=None, hide_initializer=None, hide_array_size=None):
+        if hide_initializer is None:
+            hide_initializer = self.hide_initializer
+        if hide_array_size is None:
+            hide_array_size = self.hide_array_size
+        
+        return super().freestanding_str(idt, hide_initializer=hide_initializer, hide_array_size=hide_array_size)
 
 
 class Fun(BlockStmt):
