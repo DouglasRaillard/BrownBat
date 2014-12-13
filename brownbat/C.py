@@ -951,9 +951,18 @@ class Type(DelegatedTokenList, core.NonIterable):
         node_classinfo=TokenList
     )
     
+    type_declaration_regex = re.compile('^\s*(?P<name>.*?)\s*(\[\s*(?P<array_size>.*?)\s*\])\s*$')
+    
     def __init__(self, name=None, array_size=None, *args, **kwargs):
-        self.name = name
-        self.array_size = array_size
+        match = self.type_declaration_regex.match(name) if isinstance(name, str) else None
+        if match:
+            self.name = match.group('name')
+            self.array_size = match.group('array_size')
+            if array_size is not None:
+                self.array_size = array_size
+        else:
+            self.name = name
+            self.array_size = array_size
         super().__init__(tokenlist_attr_name='name', *args, **kwargs)
 
 
@@ -1109,7 +1118,7 @@ class Struct(_StructUnionBase):
     def designated_init(self):
         return StructDefaultDesignatedInitializer(self)
 
-class DesignatedInitializer(Expr, collections.abc.MutableMapping):
+class StructDesignatedInitializer(Expr, collections.abc.MutableMapping):
     def __init__(self, value_map=None, *args, **kwargs):
         self.value_map = collections.OrderedDict()
         
@@ -1160,7 +1169,7 @@ class DesignatedInitializer(Expr, collections.abc.MutableMapping):
         for member, value in self.items():
             # If there is a nested designated intializer, output an anonymous 
             # struct type for the member
-            if isinstance(value, DesignatedInitializer):
+            if isinstance(value, StructDesignatedInitializer):
                 type_ = value.struct(type_translation_map=type_translation_map).anonymous()
             else:
                 type_ = translate_type(value) 
@@ -1177,7 +1186,7 @@ class DesignatedInitializer(Expr, collections.abc.MutableMapping):
     def __getitem__(self, key):
         # If the key is a string, try to catch any reference
         # to a nested member, and forward it to the nested
-        # DesignatedInitializer instance
+        # StructDesignatedInitializer instance
         if isinstance(key, str):
             split_key = key.split('.')
             if len(split_key) > 1:
@@ -1191,12 +1200,12 @@ class DesignatedInitializer(Expr, collections.abc.MutableMapping):
         value = TokenList.ensure_node(value)
         # If the key is a string, try to catch any reference
         # to a nested member, and forward it to the nested
-        # DesignatedInitializer instance        
+        # StructDesignatedInitializer instance        
         if isinstance(key, str):
             split_key = key.split('.')
             if len(split_key) > 1:
                 nested_member = '.'.join(split_key[1:])
-                self.value_map.setdefault(split_key[0], DesignatedInitializer())[nested_member] = value
+                self.value_map.setdefault(split_key[0], StructDesignatedInitializer())[nested_member] = value
             else:
                 self.value_map[key] = value
         else:
@@ -1219,14 +1228,14 @@ class DesignatedInitializer(Expr, collections.abc.MutableMapping):
     def __iter__(self):
         return iter(self.value_map)
     
-class StructDefaultDesignatedInitializer(NodeView, DesignatedInitializer):   
+class StructDefaultDesignatedInitializer(NodeView, StructDesignatedInitializer):   
     def inline_str(self, idt=None):
         merged_initializer = collections.OrderedDict(
             [(member.inline_str(),member.default_initializer)
             for member in self.parent.node_list]+
             list(self.items())
         )
-        return DesignatedInitializer(merged_initializer).inline_str(idt)
+        return StructDesignatedInitializer(merged_initializer).inline_str(idt)
         
 
 class Union(_StructUnionBase):
