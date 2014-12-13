@@ -1187,12 +1187,14 @@ class DesignatedInitializer(Expr, collections.abc.MutableMapping):
     def __iter__(self):
         return iter(self.value_map)
     
-class StructDefaultDesignatedInitializer(NodeView, Expr):   
+class StructDefaultDesignatedInitializer(NodeView, DesignatedInitializer):   
     def inline_str(self, idt=None):
-        return DesignatedInitializer(collections.OrderedDict(
-            (member.inline_str(),member.default_initializer)
-            for member in self.parent.node_list
-        )).inline_str(idt)
+        merged_initializer = collections.OrderedDict(
+            [(member.inline_str(),member.default_initializer)
+            for member in self.parent.node_list]+
+            list(self.items())
+        ]
+        return DesignatedInitializer(merged_initializer).inline_str(idt)
         
 
 class Union(_StructUnionBase):
