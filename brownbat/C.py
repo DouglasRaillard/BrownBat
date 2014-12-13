@@ -1299,7 +1299,7 @@ class PrepInclude(OneLinePrepBase):
         else:
             processed_path = TokenList(('"', header_path_proxy, '"'))
 
-        super().__init__("include", processed_path, *args, **kwargs)
+        super().__init__("include", [processed_path], *args, **kwargs)
     
             
 class PrepIf(StmtContainer):
