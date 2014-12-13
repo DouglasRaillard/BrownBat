@@ -310,6 +310,13 @@ class OrderedTypeContainer(StmtContainer):
                 # Determine dependencies with the type name, to
                 # allow hardcoded types to be taken into account
                 member_type_name = member.type.inline_str().strip()
+                # Remove the leading part to correctly match the real type name
+                # WARNING: if a 'struct foo' and 'enum foo' are both declared, it will break and
+                # register incorrect depencencies, but it would be insane to do such a thing anyway.
+                for prefix in ('struct', 'enum', 'union'):
+                    if member_type_name.startswith(prefix):
+                        member_type_name = member_type_name[len(prefix):].lstrip()
+                        break
                 
                 # Try to find a type with the exact name
                 try:
