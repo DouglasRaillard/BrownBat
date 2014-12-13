@@ -623,7 +623,7 @@ class Var(DelegatedExpr):
     )
     name = core.EnsureNode('name', node_factory=TokenList)
 
-    array_size = core.EnsureNode('array_size',
+    _array_size = core.EnsureNode('_array_size',
         node_factory=lambda array_size: TokenList(array_size) if array_size is not None else None,
         node_classinfo=TokenList
     )
@@ -631,6 +631,18 @@ class Var(DelegatedExpr):
         node_factory=lambda initializer: TokenList(initializer) if initializer is not None else None,
         node_classinfo=TokenList
     )
+    
+    @property
+    def array_size(self):
+        # If the array size is not specified, try to use the one from the type
+        if self._array_size is None and hasattr(self.type, 'array_size'):
+            return self.type.array_size
+        else:
+            return self._array_size
+    
+    @array_size.setter
+    def array_size(self, value):
+        self._array_size = value
     
     c_identifier_regex_str = "[a-zA-Z_]+[a-zA-Z0-9_]*"
     var_defi_name_array_initializer_regex_str = "(?:(?P<name>"+c_identifier_regex_str+")\s*)(?:\[\s*(?P<array_size>.*?)\s*\])?(?:\s*=\s*(?P<initializer>.*?)\s*)?"
@@ -707,7 +719,7 @@ class Var(DelegatedExpr):
             elif isinstance(decl, Var):
                 decl_storage_list = decl.storage_list
                 decl_type = decl.type
-                decl_name = decl
+                decl_name = decl.name
                 decl_array_size = decl.array_size
                 decl_initializer = decl.initializer
                 
@@ -782,10 +794,10 @@ class VarDecl(NodeView, core.NonIterable):
                 snippet += self.parent.type.inline_str(idt)+" "
                 snippet += self.parent.inline_str(idt)
                 if not hide_array_size:
-                    array_size = self.parent.array_size.inline_str(idt)
+                    array_size_str = self.parent.array_size.inline_str(idt)
                 else:
-                    array_size = ''
-                snippet += "["+array_size+"]"
+                    array_size_str = ''
+                snippet += "["+array_size_str+"]"
 
             else:
                 type_str = self.parent.type.inline_str(idt)
@@ -932,12 +944,16 @@ class FunCall(NodeView, Expr, core.NonIterable):
             param_list = self.param_joiner.join(param.inline_str(idt) for param in self.param_list),
         )
 
-# This is not for inheritance inside this library, only a helper for final user
 class Type(DelegatedTokenList, core.NonIterable):
     name = core.EnsureNode('name', TokenList)
+    array_size = core.EnsureNode('array_size ',
+        node_factory=lambda array_size: TokenList(array_size) if array_size is not None else None,
+        node_classinfo=TokenList
+    )
     
-    def __init__(self, name=None, *args, **kwargs):
+    def __init__(self, name=None, array_size=None, *args, **kwargs):
         self.name = name
+        self.array_size = array_size
         super().__init__(tokenlist_attr_name='name', *args, **kwargs)
 
 
