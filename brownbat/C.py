@@ -590,6 +590,14 @@ class Switch(Node, core.NonIterable, collections.abc.MutableMapping):
         )
         return snippet
 
+    def __copy__(self):
+        cls = type(self)
+        new_obj = cls.__new__(cls)
+        new_obj.__dict__.update(self.__dict__)
+        new_obj.case_map = copy.copy(self.case_map)
+        new_obj.expr = copy.copy(self.expr)
+        return new_obj
+
     def __getitem__(self, key):
         return self.case_map[key]
         
@@ -1177,6 +1185,14 @@ class DesignatedInitializer(Expr, collections.abc.MutableMapping):
                 self.value_map[key] = value
         else:
             self.value_map[key] = value
+
+    def __copy__(self):
+        cls = type(self)
+        new_obj = cls.__new__(cls)
+        new_obj.__dict__.update(self.__dict__)
+        new_obj.value_map = copy.copy(self.value_map)
+        return new_obj
+
         
     def __delitem__(self, key):
         del self.value_map[key]

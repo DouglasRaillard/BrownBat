@@ -95,7 +95,7 @@ def format_string(string, style, separator="_"):
     :param separator: the word separator used to split the words appart before applying the convention.
                       It defaults to '_'.
     """
-    if isinstance(string, collections.Iterable) and not isinstance(string, (str, NonIterable)):
+    if isinstance(string, collections.abc.Iterable) and not isinstance(string, (str, NonIterable)):
         token_list = string
     else:
         token_list = str(string).split(separator)
@@ -483,6 +483,10 @@ class NodeViewBase(NodeBase):
     informations already contained in the variable object.
     View nodes should store the reference of their parent in a *parent* attribute.
     """
+    def __init__(self, parent, *args, **kwargs):
+        self.parent = parent
+        super().__init__(*args, **kwargs)
+    
     def __eq__(self, other):
         """implementation of the equality test between two views:
         it tests to see if they have the same parent.
@@ -601,13 +605,7 @@ class NodeContainerBase(NodeBase, collections.abc.MutableSequence, NonIterable):
         snippet = super().freestanding_str(idt)
         return strip_starting_blank_lines(snippet)
     
-    def copy(self):
-        """Create an intermediate between a shallow copy and a deep copy of the container:
-        the node list and all the other attributes are copied using the shallow copy :func:`copy.copy`.
-        
-        The resulting object will not share the same list as the original (so it can be safely modified),
-        but the objects contained will be the same as the original's one.
-        """
+    def __copy__(self):
         cls = type(self)
         new_obj = cls.__new__(cls)
         new_obj.__dict__.update(self.__dict__)
@@ -711,7 +709,7 @@ class NodeContainerBase(NodeBase, collections.abc.MutableSequence, NonIterable):
         return iter(self.node_list)
 
 
-class TokenListABC(NodeBase, NonIterable, collections.MutableSequence):
+class TokenListABC(NodeBase, NonIterable, collections.abc.MutableSequence):
     """This class is an abstract base class for all classes that are token lists.
     
     A token list is an object that holds a sequence of tokens, which get concatenated when printed.
