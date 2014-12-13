@@ -1119,6 +1119,8 @@ class Struct(_StructUnionBase):
         return StructDefaultDesignatedInitializer(self)
 
 class StructDesignatedInitializer(Expr, collections.abc.MutableMapping):
+    default_translation_map = {int: 'int', float: 'float', str:'char *'}
+    
     def __init__(self, value_map=None, *args, **kwargs):
         self.value_map = collections.OrderedDict()
         
@@ -1137,9 +1139,9 @@ class StructDesignatedInitializer(Expr, collections.abc.MutableMapping):
         
         return snippet
     
-    def struct(self, type_translation_map=None, name=None, auto_typedef=True):
+    def struct(self, name=None, auto_typedef=True, type_translation_map=None):
         
-        def default_translator(value):
+        def default_translator(type_translation_map, value):
             """This translator uses the type_translation_map as a mapping
             of Python types to C types (strings).
             """
@@ -1149,13 +1151,15 @@ class StructDesignatedInitializer(Expr, collections.abc.MutableMapping):
                 return type_translation_map[type(value[0])]
             else:
                 return type_translation_map[type(value)]
-        
-        if isinstance(type_translation_map, collections.abc.Mapping):
+
+        if callable(type_translation_map):
+            translate_type = type_translation_map
+        elif isinstance(type_translation_map, collections.abc.Mapping):
             # The translator compare the first token in TokenList, because
             # values are always instances of TokenList
-            translate_type = default_translator
-        elif callable(type_translation_map):
-            translate_type = type_translation_map
+            translate_type = lambda value: default_translator(type_translation_map, value)
+        elif type_translation_map is None:
+            translate_type = lambda value: default_translator(self.default_translation_map, value)
         else:
             raise ValueError('type_translation_map must be either callable or a mapping')
         
