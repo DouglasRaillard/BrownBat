@@ -290,7 +290,7 @@ class OrderedTypeContainer(StmtContainer):
     
     def inline_str(self, idt=None):
         # Only touch the a copy
-        self_copy = self.copy()
+        self_copy = copy.copy(self)
         
         # Build a dictionary mapping the type names to the type objects
         type_dict = collections.OrderedDict()
@@ -1209,7 +1209,7 @@ class StructDefaultDesignatedInitializer(NodeView, DesignatedInitializer):
             [(member.inline_str(),member.default_initializer)
             for member in self.parent.node_list]+
             list(self.items())
-        ]
+        )
         return DesignatedInitializer(merged_initializer).inline_str(idt)
         
 
