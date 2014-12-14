@@ -489,9 +489,10 @@ class NodeViewBase(NodeBase):
     
     def __eq__(self, other):
         """implementation of the equality test between two views:
-        it tests to see if they have the same parent.
+        it tests to see if they have the same parent and if the two view 
+        are of the exact same type.
         """
-        return self.parent is other.parent
+        return type(self) is type(other) and self.parent is other.parent
     
 
 
