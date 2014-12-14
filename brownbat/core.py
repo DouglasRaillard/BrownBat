@@ -514,7 +514,7 @@ class PhantomNode(NodeBase):
     freestanding_str = inline_str
 
 # Instance used everywhere, instead of creating billions of identical PhantomNode
-phantom_node = PhantomNode()
+PHANTOM_NODE = PhantomNode()
 
 
 class NodeContainerBase(NodeBase, collections.abc.MutableSequence, NonIterable):

@@ -61,12 +61,12 @@ class Node(core.NodeBase):
     # We must check if the comment is None to avoid infinite recursion
     # because Com tries to build a TokenList (via TokenListContainer) with comment=None, which in turn
     # tries to build a comment with None and so on
-    comment = core.EnsureNode('comment', lambda x: Com(x) if x is not None else core.phantom_node)
+    comment = core.EnsureNode('comment', lambda x: Com(x) if x is not None else core.PHANTOM_NODE)
         
     # We must check if the comment is None to avoid infinite recursion
     # because SingleLineCom tries to build a TokenList with comment=None, which in turn
     # tries to build a comment with None and so on
-    side_comment = core.EnsureNode('side_comment', lambda x: SingleLineCom(x) if x is not None else core.phantom_node)
+    side_comment = core.EnsureNode('side_comment', lambda x: SingleLineCom(x) if x is not None else core.PHANTOM_NODE)
         
     def __init__(self, comment=None, side_comment=None, parent=None, config=None):
         """
