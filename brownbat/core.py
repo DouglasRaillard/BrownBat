@@ -53,7 +53,7 @@ The following classes are provided:
 """
     
 
-import collections.abc
+import collections
 import numbers
 import abc
 import inspect
@@ -74,7 +74,7 @@ def listify(iterable_or_single_elem):
         return []
     # We exclude iterables such as strings or NonIterable (StmtContainer for example)
     # because we want to keep them as one object and not split them
-    if isinstance(iterable_or_single_elem, collections.abc.Iterable) \
+    if isinstance(iterable_or_single_elem, collections.Iterable) \
         and not isinstance(iterable_or_single_elem, (str, NonIterable)):
         return list(iterable_or_single_elem)
     else:
@@ -95,7 +95,7 @@ def format_string(string, style, separator="_"):
     :param separator: the word separator used to split the words appart before applying the convention.
                       It defaults to '_'.
     """
-    if isinstance(string, collections.abc.Iterable) and not isinstance(string, (str, NonIterable)):
+    if isinstance(string, collections.Iterable) and not isinstance(string, (str, NonIterable)):
         token_list = string
     else:
         token_list = str(string).split(separator)
@@ -188,7 +188,7 @@ class Indentation:
 
 class NonIterable:
     """ Inheriting from this class will prevent a class to be considered as
-        :class:`collections.abc.Iterable` by :func:`listify`. 
+        :class:`collections.Iterable` by :func:`listify`. 
     """
     pass
 
@@ -517,11 +517,11 @@ class PhantomNode(NodeBase):
 PHANTOM_NODE = PhantomNode()
 
 
-class NodeContainerBase(NodeBase, collections.abc.MutableSequence, NonIterable):
+class NodeContainerBase(NodeBase, collections.MutableSequence, NonIterable):
     """This is the base class of all the nodes that contains a list of other nodes.
     
     It implements all the logic for operators overloading, and printing the nodes that it take care of.
-    It also derives from the :class:`collections.abc.MutableSequence` abstract base class, so it behaves
+    It also derives from the :class:`collections.MutableSequence` abstract base class, so it behaves
     like a list. The only exception is when given to :func:`listify`, it remains as a single object, because
     it also derives from :class:`NonIterable`. This is intended to allow the user to add nodes to it later,
     and the result should be taken into account by the consumer that used :func:`listify` on it. If it was not the case,
@@ -710,7 +710,7 @@ class NodeContainerBase(NodeBase, collections.abc.MutableSequence, NonIterable):
         return iter(self.node_list)
 
 
-class TokenListABC(NodeBase, NonIterable, collections.abc.MutableSequence):
+class TokenListABC(NodeBase, NonIterable, collections.MutableSequence):
     """This class is an abstract base class for all classes that are token lists.
     
     A token list is an object that holds a sequence of tokens, which get concatenated when printed.

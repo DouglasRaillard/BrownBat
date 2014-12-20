@@ -509,10 +509,10 @@ class DoWhile(BlockStmt):
             idt_nl = '\n'+str(idt)
         )
 
-class Switch(Node, core.NonIterable, collections.abc.MutableMapping):
+class Switch(Node, core.NonIterable, collections.MutableMapping):
     """This class represents the C *switch* statement.
     
-    This class can be used as a dictionary (:class:`collections.abc.MutableMapping`)
+    This class can be used as a dictionary (:class:`collections.MutableMapping`)
     with the keys as the case values, and the values as the code to execute when the
     tested expression matches the key.
     """
@@ -1118,13 +1118,13 @@ class Struct(_StructUnionBase):
     def designated_init(self):
         return StructDefaultDesignatedInitializer(self)
 
-class StructDesignatedInitializer(Expr, collections.abc.MutableMapping):
+class StructDesignatedInitializer(Expr, collections.MutableMapping):
     default_translation_map = {int: 'int', float: 'float', str:'char *'}
     
     def __init__(self, value_map=None, *args, **kwargs):
         self.value_map = collections.OrderedDict()
         
-        if isinstance(value_map, collections.abc.Mapping):
+        if isinstance(value_map, collections.Mapping):
             for key, value in value_map.items():
                 self[key] = TokenList.ensure_node(value)
         
@@ -1154,7 +1154,7 @@ class StructDesignatedInitializer(Expr, collections.abc.MutableMapping):
 
         if callable(type_translation_map):
             translate_type = type_translation_map
-        elif isinstance(type_translation_map, collections.abc.Mapping):
+        elif isinstance(type_translation_map, collections.Mapping):
             # The translator compare the first token in TokenList, because
             # values are always instances of TokenList
             translate_type = lambda value: default_translator(type_translation_map, value)
@@ -1461,4 +1461,20 @@ class NewLine(Node):
         return '\n'+str(idt)
     
     freestanding_str = inline_str
+        
+
+class HeaderFile(PrepIfNDef):
+    include_guard_define = core.EnsureNode('include_guard_define', TokenList)
+    
+    def __init__(self, filename=None, include_guard=None, template=None, node_list=None, *args, **kwargs):
+        if include_guard is None and filename is not None:
+            self.include_guard_define = core.format_string(filename, 'UPPER_UNDERSCORE_CASE')+'_H_'
+        else:
+            self.include_guard_define = include_guard
+            
+        node_list = core.listify(node_list)+[PrepDef(self.include_guard_define)]
+        
+        super().__init__(core.NodeAttrProxy(self, 'include_guard_define'), indent_content=False, node_list=node_list, *args, **kwargs)
+        
+        
         
