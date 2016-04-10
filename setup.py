@@ -8,7 +8,7 @@ def read(fname):
 
 setup(
     name = "BrownBat",
-    version = "0.0b1",
+    version = "0.0b2",
     author = "Douglas RAILLARD",
     author_email = "douglas.raillard.github@gmail.com",
     description = "A lazy source code generation library",
