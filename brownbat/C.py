@@ -1309,19 +1309,18 @@ class FunPtrTypedef(DelegatedTokenList, core.NonIterable):
 
 class OneLinePrepBase(Node, core.NonIterable):
     directive = core.EnsureNode('directive', TokenList)
-    param_list = core.EnsureNode('param_list', TokenListContainer)
 
-    __format_string = "#{directive} {param_list}{side_comment}"
+    _format_string = "#{directive} {param_list}{side_comment}"
 
-    def __init__(self, directive=None, param_list=None, *args, **kwargs):
+    def __init__(self, directive=None, *args, **kwargs):
         self.directive = directive
-        self.param_list = param_list
         super().__init__(*args, **kwargs)
 
-    def inline_str(self, idt=None):
-        param_list = " ".join(param.inline_str(idt) for param in self.param_list)
+    def _inline_str(self, param_list, idt=None):
+        param_list = core.listify(param_list)
+        param_list = " ".join(param.inline_str(idt) for param in param_list)
 
-        return self.__format_string.format(
+        return self._format_string.format(
             directive = self.directive.inline_str(idt),
             param_list = param_list,
             side_comment = self.side_comment.inline_str(idt)
@@ -1335,7 +1334,10 @@ class PrepDef(OneLinePrepBase):
     def __init__(self, name=None, value=None, *args, **kwargs):
         self.name = name
         self.value = value
-        super().__init__("define", (core.NodeAttrProxy(self, 'name'), core.NodeAttrProxy(self, 'value')), *args, **kwargs)
+        super().__init__("define", *args, **kwargs)
+
+    def inline_str(self, idt=None):
+        return self._inline_str((self.name, self.value), idt)
 
 
 class PrepInclude(OneLinePrepBase):
@@ -1344,15 +1346,17 @@ class PrepInclude(OneLinePrepBase):
     def __init__(self, header_path=None, system=False, *args, **kwargs):
 
         self.header_path = header_path
-        header_path_proxy = core.NodeAttrProxy(self, 'header_path')
+        self.system = system
 
-        if system:
-            processed_path = TokenList(('<', header_path_proxy, '>'))
+        super().__init__("include", *args, **kwargs)
+
+    def inline_str(self, idt=None):
+        if self.system:
+            processed_path = TokenList(('<', self.header_path, '>'))
         else:
-            processed_path = TokenList(('"', header_path_proxy, '"'))
+            processed_path = TokenList(('"', self.header_path, '"'))
 
-        super().__init__("include", [processed_path], *args, **kwargs)
-
+        return self._inline_str(processed_path, idt)
 
 class PrepIf(StmtContainer):
     cond = core.EnsureNode('cond', TokenList)
