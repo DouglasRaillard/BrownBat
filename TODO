@@ -1,7 +1,11 @@
 
 Add class to represent source files and header files
+Add functions to detect change to generated files and apply them again (base64 of compressed content and 3 way merge)
+
+Refactor to move as much code as possible into core.py (langage agnostic)
 
 Verify that inline_str and freestanding_str are correctly used
+Check the consistancy of the API
 
 Write docstring
 
