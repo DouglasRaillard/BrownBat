@@ -11,6 +11,10 @@ import brownbat.core as core
 
 C.Node.config.enable_debug_comments = True
 
+include = C.PrepInclude("my_header.h", True)
+print(include)
+exit(42)
+
 my_function = C.Fun('my_fun')
 
 local_var = C.Var('int my_local_var=42', parent=my_function)

@@ -18,11 +18,11 @@ class Name(C.TokenList):
     name_list = []
     module_name = "foo"
     convention_applied = False
-    
+
     def __init__(self, token_list=None):
         Name.name_list.append(self)
         super().__init__(token_list)
-        
+
     def apply_convention(self):
         cls = self.__class__
         if not cls.convention_applied:
@@ -71,3 +71,13 @@ class Expr2(C.Expr):
 
 expr2 = Expr2('expression')
 print(expr2.freestanding_str())
+
+
+
+expr3 = C.Expr('expression')
+expr3.side_comment = "useless expr3"
+
+
+expr4 = C.Expr('expression')
+expr4.side_comment = "useless expr4"
+print(expr3+expr4)

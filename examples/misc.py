@@ -1,7 +1,8 @@
 #! /usr/bin/python3
 # -*-coding:Utf-8 -*
 
-import C
+import brownbat.C as C
+import brownbat.core as core
 
 class UserHeader():
     def __init__(self, path, system=False):
