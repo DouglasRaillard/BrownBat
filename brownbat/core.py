@@ -135,12 +135,12 @@ def strip_starting_blank_lines(snippet):
 class Indentation:
     """This class manages the indentation in the source code output.
 
-    Instances can be used be printed to give the string to put at the beginning of a new indented line.
+    Instances can be printed to give the string to put at the beginning of a new indented line.
 
     >>> idt = Indentation()
     >>> idt.indent()
     >>> print('*'+str(idt)+'indented Hello World')
-        indented Hello World
+    *    indented Hello World
     """
 
     # Default indentation style (4 spaces)
@@ -259,9 +259,14 @@ class NodeABC(metaclass=NodeMeta):
         pass
 
 class NodeAttrProxy(NodeABC):
-    """This class is a proxy that redirects calls to the :class:`NodeABC` API to an attribute.
+    """This class is a proxy that redirects calls to the :class:`NodeABC` API to a given
+    attribute of a given instance.
 
-    It creates stubs that allows transparent composition.
+    It creates stubs that allows transparent composition for the most limited subset of the APIs
+    provided by this library to avoid getting into crazy things.
+    This class should really be used when this enable to factor lots of code. A design based on
+    hooks implemented in subclasses called by a base class is preferable in most case where you
+    would be tempted to use this proxy.
     """
     def __init__(self, obj, attr_name):
         self.obj = obj
@@ -283,7 +288,8 @@ class EnsureNode:
     When set, this descriptor check if the given object is indeed an instance of *node_classinfo* classes.
     If not, it calls *node_factory* to build an object and store its return value. Therefore,
     the content of the attribute using this descriptor is always some instance of the classes
-    contained in *node_classinfo*.
+    contained in *node_classinfo*. This descriptor is used as a gatekeeper to be able to make some assumptions
+    on the type of data hold by the attribute.
 
     .. note:: The *node_classinfo* always contains the class :class:`NodeABC`.
     """
