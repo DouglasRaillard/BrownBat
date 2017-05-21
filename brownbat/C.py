@@ -943,7 +943,7 @@ class FunCall(NodeView, Expr, core.NonIterable):
         self.param_list = param_list
         if param_joiner is not None:
             self.param_joiner = param_joiner
-        super().__init__(self, parent=parent, *args, **kwargs)
+        super().__init__(parent=parent, *args, **kwargs)
 
     def inline_str(self, idt=None):
         return self.__format_string.format(
