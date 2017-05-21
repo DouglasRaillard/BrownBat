@@ -10,7 +10,7 @@ setup(
     name = "BrownBat",
     version = "0.0b2",
     author = "Douglas RAILLARD",
-    author_email = "douglas.raillard.github@gmail.com",
+    author_email = "public.douglas.raillard@gmail.com",
     description = "A lazy source code generation library",
     long_description=read('README.rst'),
     license = "GNU Lesser General Public License v3 or later (LGPLv3+)",
@@ -23,6 +23,6 @@ setup(
         "Intended Audience :: Developers",
         "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
         "Programming Language :: Python :: 3 :: Only",
-        "Topic :: Software Development :: Code Generators",        
+        "Topic :: Software Development :: Code Generators",
     ],
-) 
+)
