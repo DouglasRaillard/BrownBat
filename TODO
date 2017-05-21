@@ -1,5 +1,10 @@
 
+Rework C.FunParam handling to be able to be more flexible in what can be passed as a function parameter
+and also in the param_list when building C.Fun
+
 Add class to represent source files and header files
+    User must be able to provide a template with code sections in it
+
 Add functions to detect change to generated files and apply them again (base64 of compressed content and 3 way merge)
 
 Refactor to move as much code as possible into core.py (langage agnostic)
