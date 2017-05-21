@@ -8,7 +8,7 @@ sys.path[0:0] = ['.', '..']
 
 import brownbat.C as C
 import brownbat.core as core
-C.Node.config.enable_debug_comments = True
+#C.Node.config.enable_debug_comments = True
 
 
 s1 = C.Struct('s1', ('s2 *a'))
@@ -26,7 +26,9 @@ cont.append(s2)
 cont.append(s4)
 cont.append(s5)
 
-desig_init = C.StructDesignatedInitializer({'a':3, 'b.c':4, 'b.d':'"hello world"', 'b.e.a':42, 'b.e.b':43})
+#desig_init = C.StructDesignatedInitializer({'a':3, 'b.c':4, 'b.d':'"hello world"', 'b.e.a':42, 'b.e.b':43})
+desig_init = C.StructDesignatedInitializer({'a':3})
+
 desig_init.side_comment = 'hello my dear :D'
 type_translation_map={
     str: C.Type('char', ''),
@@ -43,11 +45,13 @@ cont.append(v1.decl())
 cont.append(v1.extern_decl())
 
 cont.append(v1.assign(desig_init))
-print(desig_init['b.c'])
+#print(desig_init['b.c'])
 
 
 root_cont = C.HeaderFile('blop', node_list=[cont])
-print(root_cont)
+print(str(root_cont))
+print(C.HeaderFile.check_file(str(root_cont)))
+exit(42)
 print(crafted_struct)
 print(v2.decl())
 print(desig_init)

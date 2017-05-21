@@ -33,6 +33,12 @@ import builtins
 import inspect
 import os
 import copy
+import hashlib
+import json
+import io
+import gzip
+import base64
+import difflib
 
 import brownbat.core as core
 
@@ -901,8 +907,13 @@ class FunDef(NodeView):
         if not param_list:
             param_list = "void"
 
+        # Allow to remove the return type to have better output for C++ constructors
+        return_type_string = self.parent.return_type.inline_str(idt)
+        if return_type_string:
+            return_type_string += ' '
+
         return self.__format_string.format(
-            type = self.parent.return_type.inline_str(idt)+' ',
+            type = return_type_string,
             name = self.parent.name.inline_str(idt),
             param_list = param_list,
             side_comment = self.parent.side_comment.inline_str(idt),
@@ -925,8 +936,13 @@ class FunDecl(NodeView):
         if not param_list:
             param_list = "void"
 
+        # Allow to remove the return type to have better output for C++ constructors
+        return_type_string = self.parent.return_type.inline_str(idt)
+        if return_type_string:
+            return_type_string += ' '
+
         return self.__format_string.format(
-            type = self.parent.return_type.inline_str(idt)+' ',
+            type = return_type_string,
             name = self.parent.name.inline_str(idt),
             param_list = param_list,
             storage_list = storage_list,
@@ -1390,7 +1406,19 @@ class PrepIfNDef(PrepIf):
 
 
 class BaseCom(Node, core.NonIterable):
-    pass
+    start_string = ""
+    end_string = ""
+
+    @classmethod
+    def extract_content(cls, content):
+        content_string = str(content).strip()
+
+        if not content_string.startswith(cls.start_string) \
+            or not content_string.endswith(cls.end_string):
+            raise ValueError("Not a comment")
+
+        return content_string[len(cls.start_string):-len(cls.end_string)]
+
 
 class Com(TokenListContainer, BaseCom):
     # String put at the front of the comment
@@ -1454,6 +1482,7 @@ class SingleLineCom(DelegatedTokenList, BaseCom):
     content = core.EnsureNode('content', TokenList)
 
     start_string = ' //'
+    end_string = ''
 
     def __init__(self, comment=None, *args, **kwargs):
         self.content = comment
@@ -1461,7 +1490,7 @@ class SingleLineCom(DelegatedTokenList, BaseCom):
 
     def inline_str(self, idt=None):
         content_string = super().inline_str(idt)
-        return self.start_string+content_string
+        return self.start_string+content_string+self.end_string
 
     freestanding_str = inline_str
 
@@ -1473,18 +1502,234 @@ class NewLine(Node):
 
     freestanding_str = inline_str
 
+class FileMetadataCommentView(NodeView, BaseCom):
+    start_string = Com.start_string
+    end_string = Com.end_string
 
-class HeaderFile(PrepIfNDef):
+    def inline_str(self, idt=None):
+        json_content = json.dumps(self.parent.metadata, sort_keys=True, indent="  ")
+        comment = Com(
+            self.parent.start_metadata_string+json_content+self.parent.end_metadata_string,
+            auto_wrap = False
+        )
+        # We dont want to have a side comment which could break the
+        # parsing
+        comment.side_comment = core.PHANTOM_NODE
+        return comment.inline_str(idt)
+
+
+class FileMetadata(Node, core.NonIterable):
+    start_metadata_string = "begin-metadata:\n"
+    end_metadata_string = "\n:end-metadata"
+
+    @classmethod
+    def extract_metadata(cls, metadata_file):
+        start_metadata_string = cls.start_metadata_string.strip()
+        end_metadata_string= cls.end_metadata_string.strip()
+
+        # Look for the start_metadata_string string as the marker
+        # for the beginning of the metadata comment, and get the
+        # lines up to end_metadata_string
+        select_line = False
+        metadata_comment = ""
+        file_content = ""
+        metadata_file = io.StringIO(str(metadata_file))
+        for line in metadata_file:
+            stripped_line = line.strip()
+            if stripped_line.endswith(start_metadata_string):
+                select_line = True
+
+            if select_line:
+                metadata_comment += line+"\n"
+            else:
+                file_content += line
+
+            if stripped_line.startswith(end_metadata_string):
+                select_line = False
+
+        # WARNING: this is pretty fragile
+        # Remove the trailing new line added in the loop and the leading new line
+        # added when printing the file with freestanding_str
+        file_content = file_content[1:-1]
+
+        if not metadata_comment:
+            raise ValueError("No metadata comment in this file")
+
+        # Extract the content from the comment
+        metadata_comment = FileMetadataCommentView.extract_content(metadata_comment)
+
+        # And strip the begin and en markers from the metadata
+        metadata_string = metadata_comment[len(start_metadata_string):-len(end_metadata_string)]
+        return (cls(json.loads(metadata_string)), file_content)
+
+    @classmethod
+    def check_checksum(cls, content):
+        metadata, to_be_checked = cls.extract_metadata(content)
+        content_checksum = cls.hash_content(to_be_checked)
+        metadata_checksum = metadata["checksum"]
+
+        return content_checksum == metadata_checksum
+
+    @staticmethod
+    def hash_content(content):
+        return hashlib.sha1(str(content).encode()).hexdigest()
+
+    @staticmethod
+    def compress_content(content):
+        return base64.a85encode(gzip.compress(str(content).encode()), foldspaces=True, pad=False, adobe=False).decode()
+
+    @staticmethod
+    def decompress_content(compressed_content):
+        return gzip.decompress(base64.a85decode(compressed_content, foldspaces=True)).decode()
+
+
+    def __init__(self, metadata=None, *args, **kwargs):
+        self.metadata = dict(metadata) if metadata is not None else dict()
+        super().__init__(*args, **kwargs)
+
+    def metadata_comment(self):
+        return FileMetadataCommentView(self)
+
+    def update_metadata(self, file_content):
+        self.metadata['checksum'] = self.hash_content(file_content)
+        self.metadata["compressed-content"] = self.compress_content(file_content)
+
+
+    def inline_str(self, idt=None):
+        return self.metadata_comment().inline_str(idt)
+
+    def freestanding_str(self, idt=None):
+        return self.metadata_comment().freestanding_str(idt)
+
+    def __setitem__(self, item, value):
+        self.metadata[item] = value
+
+    def __getitem__(self, item):
+        return self.metadata[item]
+
+    def __iter__(self):
+        return iter(self.metadata)
+
+    def __len__(self):
+        return len(self.metadata)
+
+class File(StmtContainer):
+    @staticmethod
+    def user_has_changed_content(file_content):
+        return not FileMetadata.check_checksum(file_content)
+
+    def __init__(self, filename=None, checksum_metadata=True, content_metadata=False, *args, **kwargs):
+        self.filename = filename
+        #FIXME: ignored for now
+        self.checksum_metadata = checksum_metadata
+        self.content_metadata = content_metadata
+
+        self.metadata = FileMetadata()
+        super().__init__(*args, **kwargs)
+
+    def user_has_changed_file(self):
+        with open(self.filename, "r") as f:
+            return self.user_has_changed_content(f.read())
+
+    def generated_content_has_changed(self, old_generated_file_content):
+        new_generated_content = super().inline_str()
+        new_generated_content_checksum = FileMetadata.hash_content(new_generated_content)
+
+        old_generated_metadata = FileMetadata.extract_metadata(str(old_generated_file_content))[0].metadata
+        old_generated_content_checksum = old_generated_metadata["checksum"]
+        return new_generated_content_checksum != old_generated_content_checksum
+
+    def generated_file_has_changed(self):
+        with open(self.filename, "r") as f:
+            return self.generated_content_has_changed(f.read())
+
+    # FIXME: broken for now
+    def content_patch(self, old_content=None):
+        # If some content is handed down
+        if old_content:
+            new_generated_content = super().inline_str()
+            old_content = str(old_content)
+            new_generated_content = self._hash_content(new_generated_content)
+
+            old_metadata = FileMetadata.extract_metadata(old_content)[0].metadata
+            old_checksum = old_metadata["checksum"]
+
+            original_old_content = self._decompress_content(old_metadata["compressed-content"])
+            patch_generated = "\n".join(difflib.unified_diff(
+                original_old_content.split('\n'),
+                new_generated_content.split('\n'),
+                fromfile = self.filename,
+                tofile = self.filename,
+                lineterm = '',
+                n = 10
+            ))
+            # If the file should be the same but somebody manually edited it
+            if checksum == old_checksum and patch_generated is not None:
+                # compute patch between original_old_content and
+                pass
+
+            return patch
+        # If no old content is given, create a patch that
+        # can be used to create the file from scratch
+        else:
+            return "\n".join(difflib.unified_diff(
+                [],
+                super().freestanding_str().split('\n'),
+                fromfile = self.filename,
+                tofile = self.filename,
+                lineterm = '',
+                n = 10
+            ))
+
+    def file_patch(self, filename=None):
+        if filename is None:
+            filename = self.filename
+        try:
+            with open(filename, "r") as f:
+                old_content = f.read()
+        except FileNotFoundError:
+            old_content = None
+
+        patch = self.content_patch(old_content)
+        return patch if patch is not None else ""
+
+    def inline_str(self, idt=None):
+        snippet = super().inline_str(idt)
+        self.metadata.update_metadata(snippet)
+        return snippet+self.metadata.metadata_comment().freestanding_str(idt)
+
+    def write_file(self, force=False):
+        if not force:
+            try:
+                has_changed = self.user_has_changed_file()
+            except ValueError:
+                has_changed = True
+
+            if has_changed :
+                raise ValueError("The file has been modified by user, and we are not overriding it")
+
+        # FIXME: corruption of the file sometimes
+        with open(self.filename, "r+") as f:
+            f.write(self.freestanding_str())
+
+class HeaderFile(File, PrepIfNDef):
     include_guard_define = core.EnsureNode('include_guard_define', TokenList)
 
-    def __init__(self, filename=None, include_guard=None, template=None, node_list=None, *args, **kwargs):
+    def __init__(self, filename=None, include_guard=None, template=None, checksum_metadata=True, content_metadata=False, node_list=None, *args, **kwargs):
         if include_guard is None and filename is not None:
-            self.include_guard_define = core.format_string(filename, 'UPPER_UNDERSCORE_CASE')+'_H_'
+            basename = os.path.basename(filename)
+            self.include_guard_define = core.format_string(basename, 'UPPER_UNDERSCORE_CASE')+'_H_'
         else:
             self.include_guard_define = include_guard
 
-        node_list = core.listify(node_list)+[PrepDef(self.include_guard_define)]
+        node_list = [PrepDef(core.NodeAttrProxy(self, 'include_guard_define'))]+core.listify(node_list)
 
-        super().__init__(core.NodeAttrProxy(self, 'include_guard_define'), indent_content=False, node_list=node_list, *args, **kwargs)
+        super().__init__(cond=core.NodeAttrProxy(self, 'include_guard_define'), filename=filename, checksum_metadata=checksum_metadata, content_metadata=content_metadata, node_list=node_list, indent_content=False, *args, **kwargs)
+
+
+class SourceFile(File):
+
+    def __init__(self, filename=None, template=None, checksum_metadata=True, content_metadata=False, *args, **kwargs):
+        super().__init__(filename=filename, checksum_metadata=checksum_metadata, content_metadata=content_metadata, *args, **kwargs)
 
 

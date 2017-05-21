@@ -75,7 +75,7 @@ def listify(iterable_or_single_elem):
     # We exclude iterables such as strings or NonIterable (StmtContainer for example)
     # because we want to keep them as one object and not split them
     if isinstance(iterable_or_single_elem, collections.Iterable) \
-        and not isinstance(iterable_or_single_elem, (str, NonIterable)):
+        and not isinstance(iterable_or_single_elem, (str, bytes, NonIterable)):
         return list(iterable_or_single_elem)
     else:
         return [iterable_or_single_elem]

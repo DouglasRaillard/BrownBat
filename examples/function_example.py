@@ -2,6 +2,8 @@
 # -*-coding:Utf-8 -*
 
 import sys
+import base64
+import hashlib
 
 # If BrownBat is not installed, this enable the example to be run from the root of the project or this directory
 sys.path[0:0] = ['.', '..']
@@ -12,8 +14,6 @@ import brownbat.core as core
 C.Node.config.enable_debug_comments = True
 
 include = C.PrepInclude("my_header.h", True)
-print(include)
-exit(42)
 
 my_function = C.Fun('my_fun')
 
@@ -42,3 +42,22 @@ var = C.Var(name='my_var', type=+struct, initializer=(+struct)**~struct.designat
 print(var>>'blop' == 42)
 print(var.defi())
 print(var.extern_decl())
+
+string = str(struct)
+
+initial_data = base64.a85encode(string.encode(), foldspaces=True, wrapcol=120, pad=False, adobe=False).decode()
+content_com = C.Com(initial_data, auto_wrap=False)
+print(content_com)
+
+data = str(content_com)
+data = data.strip()
+data = data[len(content_com.start_string):len(data)-len(content_com.end_string)-len(str(content_com.side_comment))]
+data = data.replace(' ', '')
+#print(data)
+print(initial_data==data)
+
+decoded_data = base64.a85decode(data, foldspaces=True).decode()
+print(decoded_data)
+print(decoded_data==string)
+
+print(hashlib.sha1(string.encode()).hexdigest())

@@ -1,0 +1,24 @@
+{
+    "MyClass" : {
+        "public" : {
+            "int my_public_member": "42",
+            "OtherClass other_member" : "whatever_you_want"
+        },
+        "private" : {
+            "int my_private_member": "42",
+            "OtherClass other_member" : "whatever_you_want"
+        }
+    },
+
+
+    "MyClass2" : {
+        "public" : {
+            "int my_public_member": "42",
+            "OtherClass other_member" : "whatever_you_want"
+        },
+        "private" : {
+            "int my_private_member": "42",
+            "OtherClass other_member" : "whatever_you_want"
+        }
+    }
+}
